@@ -14,10 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+use std::iter::repeat;
+
 pub struct Iter<'a, T> {
     order: &'a mut [T],
     stack: Vec<usize>,
-    n_take: usize,
 }
 
 impl<'a, T> Iter<'a, T> {
@@ -27,21 +28,20 @@ impl<'a, T> Iter<'a, T> {
         Iter {
             order: items,
             stack: Vec::with_capacity(n_take),
-            n_take,
         }
     }
 
     pub fn current(&self) -> &[T] {
-        &self.order[0..self.n_take]
+        &self.order[0..self.stack.capacity()]
     }
 
     pub fn next(&mut self) -> bool {
         // Handle the first call specially
         if self.stack.is_empty() {
-            if self.n_take <= 0 {
+            if self.stack.capacity() <= 0 {
                 false
             } else {
-                self.stack.extend(std::iter::repeat(0).take(self.n_take));
+                self.stack.extend(repeat(0).take(self.stack.capacity()));
                 true
             }
         } else {
@@ -61,8 +61,8 @@ impl<'a, T> Iter<'a, T> {
                     // For the rest the values start by picking the
                     // first possible one. The order is already right
                     // for this.
-                    let to_add = self.n_take - self.stack.len();
-                    self.stack.extend(std::iter::repeat(0).take(to_add));
+                    let to_add = self.stack.capacity() - self.stack.len();
+                    self.stack.extend(repeat(0).take(to_add));
                     return true;
                 }
             }
