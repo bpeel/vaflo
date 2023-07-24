@@ -14,24 +14,24 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-pub struct Iter {
-    order: Vec<usize>,
+pub struct Iter<'a, T> {
+    order: &'a mut [T],
     stack: Vec<usize>,
     n_take: usize,
 }
 
-impl Iter {
-    pub fn new(n_items: usize, n_take: usize) -> Iter {
-        assert!(n_take <= n_items);
+impl<'a, T> Iter<'a, T> {
+    pub fn new(items: &'a mut [T], n_take: usize) -> Iter<T> {
+        assert!(n_take <= items.len());
 
         Iter {
-            order: (0..n_items).collect(),
+            order: items,
             stack: Vec::with_capacity(n_take),
             n_take,
         }
     }
 
-    pub fn current(&self) -> &[usize] {
+    pub fn current(&self) -> &[T] {
         &self.order[0..self.n_take]
     }
 
@@ -80,8 +80,9 @@ mod test {
 
     #[test]
     fn all_different() {
-        let mut values = HashSet::<[usize; 3]>::new();
-        let mut iter = Iter::new(5, 3);
+        let mut values = HashSet::<[u8; 3]>::new();
+        let mut items = [0u8, 1u8, 2u8, 3u8, 4u8];
+        let mut iter = Iter::new(&mut items, 3);
 
         while iter.next() {
             let order = iter.current();
@@ -106,7 +107,8 @@ mod test {
             [2, 0],
         ];
 
-        let mut iter = Iter::new(3, 2);
+        let mut items = [0u8, 1u8, 2u8];
+        let mut iter = Iter::new(&mut items, 2);
 
         for value in values {
             assert!(iter.next());
@@ -118,7 +120,8 @@ mod test {
 
     #[test]
     fn single() {
-        let mut iter = Iter::new(1, 1);
+        let mut items = [0u8];
+        let mut iter = Iter::new(&mut items, 1);
 
         assert!(iter.next());
         assert_eq!(iter.current(), &[0]);
@@ -127,7 +130,8 @@ mod test {
 
     #[test]
     fn empty() {
-        let mut iter = Iter::new(10, 0);
+        let mut items = [0u8, 62, 5, 1, 2, 42];
+        let mut iter = Iter::new(&mut items, 0);
 
         assert!(!iter.next());
     }
