@@ -63,7 +63,7 @@ impl<'a> Iter<'a> {
                 }
             }
 
-            if self.dictionary.contains(&self.result_buf) {
+            if self.dictionary.contains(self.result_buf.chars()) {
                 return Some(&self.result_buf);
             }
         }

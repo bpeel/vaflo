@@ -25,7 +25,7 @@ impl Dictionary {
         }
     }
 
-    pub fn contains(&self, word: &str) -> bool {
+    pub fn contains<I: Iterator<Item = char>>(&self, word: I) -> bool {
         // Skip the root node
         let Some(Node { remainder, child_offset, .. }) =
             Node::extract(&self.data)
@@ -38,7 +38,7 @@ impl Dictionary {
         }
 
         let mut data = &remainder[child_offset..];
-        let mut word = word.chars().flat_map(|c| c.to_lowercase());
+        let mut word = word.flat_map(|c| c.to_lowercase());
         let mut next_letter = word.next();
 
         loop {
@@ -164,20 +164,20 @@ mod test {
 
         let dictionary = Dictionary::new(Box::new(DICTIONARY_BYTES.clone()));
 
-        assert!(dictionary.contains("a"));
-        assert!(dictionary.contains("b"));
-        assert!(dictionary.contains("c"));
-        assert!(dictionary.contains("apple"));
-        assert!(dictionary.contains("app"));
-        assert!(dictionary.contains("ĉapelo"));
+        assert!(dictionary.contains("a".chars()));
+        assert!(dictionary.contains("b".chars()));
+        assert!(dictionary.contains("c".chars()));
+        assert!(dictionary.contains("apple".chars()));
+        assert!(dictionary.contains("app".chars()));
+        assert!(dictionary.contains("ĉapelo".chars()));
 
-        assert!(!dictionary.contains(""));
-        assert!(!dictionary.contains("d"));
-        assert!(!dictionary.contains("appl"));
-        assert!(!dictionary.contains("apples"));
-        assert!(!dictionary.contains("eĥo"));
+        assert!(!dictionary.contains("".chars()));
+        assert!(!dictionary.contains("d".chars()));
+        assert!(!dictionary.contains("appl".chars()));
+        assert!(!dictionary.contains("apples".chars()));
+        assert!(!dictionary.contains("eĥo".chars()));
 
-        assert!(dictionary.contains("APPLE"));
-        assert!(dictionary.contains("ĈAPelo"));
+        assert!(dictionary.contains("APPLE".chars()));
+        assert!(dictionary.contains("ĈAPelo".chars()));
     }
 }
