@@ -2,6 +2,7 @@ mod permute;
 mod dictionary;
 mod word_solver;
 mod grid;
+mod grid_solver;
 
 use std::process::ExitCode;
 use std::io;
