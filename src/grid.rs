@@ -19,6 +19,8 @@ use std::str::FromStr;
 
 pub const WORD_LENGTH: usize = 5;
 pub const N_WORDS_ON_AXIS: usize = (WORD_LENGTH + 1) / 2;
+// The number of letters not at an intersection per word
+const N_SPACING_LETTERS: usize = WORD_LENGTH - N_WORDS_ON_AXIS;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LetterState {
@@ -264,6 +266,13 @@ impl Grid {
     pub fn vertical_words(&self) -> &[Word; N_WORDS_ON_AXIS] {
         &self.vertical_words
     }
+
+    pub fn letters(&self) -> LetterIter {
+        LetterIter {
+            grid: self,
+            pos: 0,
+        }
+    }
 }
 
 fn format_character(ch: char, f: &mut fmt::Formatter) -> fmt::Result {
@@ -297,6 +306,37 @@ impl fmt::Display for ParseError {
             },
             ParseError::NotEnoughLines => write!(f, "not enough lines"),
             ParseError::TooManyLines => write!(f, "too many lines"),
+        }
+    }
+}
+
+pub struct LetterIter<'a> {
+    grid: &'a Grid,
+    pos: usize,
+}
+
+impl<'a> Iterator for LetterIter<'a> {
+    type Item = Letter;
+
+    fn next(&mut self) -> Option<Letter> {
+        let pos = self.pos;
+
+        if pos < N_WORDS_ON_AXIS * WORD_LENGTH {
+            self.pos += 1;
+
+            let word = &self.grid.horizontal_words[pos / WORD_LENGTH];
+            Some(word.letters[pos % WORD_LENGTH])
+        } else {
+            let pos = pos - N_WORDS_ON_AXIS * WORD_LENGTH;
+
+            if pos < N_WORDS_ON_AXIS * N_SPACING_LETTERS {
+                self.pos += 1;
+
+                let word = &self.grid.vertical_words[pos / N_SPACING_LETTERS];
+                Some(word.letters[pos % N_SPACING_LETTERS * 2 + 1])
+            } else {
+                None
+            }
         }
     }
 }
@@ -546,6 +586,24 @@ mod test {
                 Letter { value: 'p', state: LetterState::Movable },
                 Letter { value: 'u', state: LetterState::Movable },
             ],
+        );
+    }
+
+    #[test]
+    fn letters() {
+        let grid = "abcde\n\
+                    f g h\n\
+                    ijklm\n\
+                    n o p\n\
+                    qrstu"
+            .parse::<Grid>().unwrap();
+
+        let letters = grid.letters().map(|l| l.value).collect::<String>();
+
+        assert_eq!(&letters, "abcdeijklmqrstufngohp");
+        assert_eq!(
+            letters.chars().count(),
+            N_WORDS_ON_AXIS * (WORD_LENGTH + N_SPACING_LETTERS),
         );
     }
 }
