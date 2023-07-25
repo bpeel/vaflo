@@ -41,8 +41,7 @@ pub struct Word {
 
 #[derive(Debug, Clone)]
 pub struct Grid {
-    horizontal_words: [Word; N_WORDS_ON_AXIS],
-    vertical_words: [Word; N_WORDS_ON_AXIS],
+    words: [Word; N_WORDS_ON_AXIS * 2],
 }
 
 #[derive(Debug)]
@@ -66,7 +65,7 @@ const DEFAULT_WORD: Word = Word {
 
 impl fmt::Display for Grid {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        for (i, word) in self.horizontal_words.iter().enumerate() {
+        for (i, word) in self.horizontal_words().iter().enumerate() {
             for letter in word.letters.iter() {
                 letter.fmt(f)?;
             }
@@ -76,7 +75,7 @@ impl fmt::Display for Grid {
             if vertical_letter < WORD_LENGTH {
                 write!(f, "\n")?;
 
-                for (i, word) in self.vertical_words.iter().enumerate() {
+                for (i, word) in self.vertical_words().iter().enumerate() {
                     word.letters[vertical_letter].fmt(f)?;
                     if i + 1 < N_WORDS_ON_AXIS {
                         write!(f, " ")?;
@@ -134,8 +133,7 @@ impl FromStr for Grid {
 
     fn from_str(s: &str) -> Result<Grid, ParseError> {
         let mut grid = Grid {
-            horizontal_words: [DEFAULT_WORD; N_WORDS_ON_AXIS],
-            vertical_words: [DEFAULT_WORD; N_WORDS_ON_AXIS],
+            words: [DEFAULT_WORD; N_WORDS_ON_AXIS * 2],
         };
 
         let mut line_num = 0;
@@ -172,10 +170,10 @@ impl Grid {
                 state: LetterState::Fixed,
             };
 
-            grid.horizontal_words[word_num].letters[i] = letter;
+            grid.horizontal_words_mut()[word_num].letters[i] = letter;
 
             if i & 1 == 0 {
-                grid.vertical_words[i / 2].letters[word_num * 2] = letter;
+                grid.vertical_words_mut()[i / 2].letters[word_num * 2] = letter;
             }
         }
 
@@ -191,10 +189,11 @@ impl Grid {
                 state: LetterState::Fixed,
             };
 
-            grid.vertical_words[word_num].letters[i] = letter;
+            grid.vertical_words_mut()[word_num].letters[i] = letter;
 
             if i & 1 == 0 {
-                grid.horizontal_words[i / 2].letters[word_num * 2] = letter;
+                let word = &mut grid.horizontal_words_mut()[i / 2];
+                word.letters[word_num * 2] = letter;
             }
         }
 
@@ -215,11 +214,13 @@ impl Grid {
 
             let letter = Letter::from_char(line_num, ch)?;
 
-            self.horizontal_words[line_num / 2].letters[letter_num] = letter;
+            let horizontal_word =
+                &mut self.horizontal_words_mut()[line_num / 2];
+            horizontal_word.letters[letter_num] = letter;
 
             if letter_num & 1 == 0 {
                 let mut vertical_word =
-                    &mut self.vertical_words[letter_num / 2];
+                    &mut self.vertical_words_mut()[letter_num / 2];
                 vertical_word.letters[line_num] = letter;
             }
 
@@ -242,7 +243,8 @@ impl Grid {
 
         for ch in line.chars() {
             if char_num & 1 == 0 {
-                let vertical_word = &mut self.vertical_words[char_num / 2];
+                let vertical_word =
+                    &mut self.vertical_words_mut()[char_num / 2];
                 let letter = Letter::from_char(line_num, ch)?;
                 vertical_word.letters[line_num] = letter;
             } else if ch != ' ' {
@@ -259,12 +261,20 @@ impl Grid {
         }
     }
 
-    pub fn horizontal_words(&self) -> &[Word; N_WORDS_ON_AXIS] {
-        &self.horizontal_words
+    pub fn horizontal_words(&self) -> &[Word] {
+        &self.words[0..N_WORDS_ON_AXIS]
     }
 
-    pub fn vertical_words(&self) -> &[Word; N_WORDS_ON_AXIS] {
-        &self.vertical_words
+    pub fn vertical_words(&self) -> &[Word] {
+        &self.words[N_WORDS_ON_AXIS..N_WORDS_ON_AXIS * 2]
+    }
+
+    fn horizontal_words_mut(&mut self) -> &mut [Word] {
+        &mut self.words[0..N_WORDS_ON_AXIS]
+    }
+
+    fn vertical_words_mut(&mut self) -> &mut [Word] {
+        &mut self.words[N_WORDS_ON_AXIS..N_WORDS_ON_AXIS * 2]
     }
 
     pub fn letters(&self) -> LetterIter {
@@ -324,7 +334,7 @@ impl<'a> Iterator for LetterIter<'a> {
         if pos < N_WORDS_ON_AXIS * WORD_LENGTH {
             self.pos += 1;
 
-            let word = &self.grid.horizontal_words[pos / WORD_LENGTH];
+            let word = &self.grid.horizontal_words()[pos / WORD_LENGTH];
             Some(word.letters[pos % WORD_LENGTH])
         } else {
             let pos = pos - N_WORDS_ON_AXIS * WORD_LENGTH;
@@ -332,7 +342,7 @@ impl<'a> Iterator for LetterIter<'a> {
             if pos < N_WORDS_ON_AXIS * N_SPACING_LETTERS {
                 self.pos += 1;
 
-                let word = &self.grid.vertical_words[pos / N_SPACING_LETTERS];
+                let word = &self.grid.vertical_words()[pos / N_SPACING_LETTERS];
                 Some(word.letters[pos % N_SPACING_LETTERS * 2 + 1])
             } else {
                 None
@@ -358,7 +368,7 @@ mod test {
         assert_eq!(&grid.to_string(), grid_source);
 
         assert_eq!(
-            &grid.horizontal_words[0].letters,
+            &grid.horizontal_words()[0].letters,
             &[
                 Letter { value: 'a', state: LetterState::Fixed },
                 Letter { value: 'b', state: LetterState::Movable },
@@ -368,7 +378,7 @@ mod test {
             ],
         );
         assert_eq!(
-            &grid.horizontal_words[1].letters,
+            &grid.horizontal_words()[1].letters,
             &[
                 Letter { value: 'i', state: LetterState::Movable },
                 Letter { value: 'j', state: LetterState::Fixed },
@@ -378,7 +388,7 @@ mod test {
             ],
         );
         assert_eq!(
-            &grid.horizontal_words[2].letters,
+            &grid.horizontal_words()[2].letters,
             &[
                 Letter { value: 'q', state: LetterState::Fixed },
                 Letter { value: 'r', state: LetterState::Fixed },
@@ -388,7 +398,7 @@ mod test {
             ],
         );
         assert_eq!(
-            &grid.vertical_words[0].letters,
+            &grid.vertical_words()[0].letters,
             &[
                 Letter { value: 'a', state: LetterState::Fixed },
                 Letter { value: 'f', state: LetterState::Fixed },
@@ -398,7 +408,7 @@ mod test {
             ],
         );
         assert_eq!(
-            &grid.vertical_words[1].letters,
+            &grid.vertical_words()[1].letters,
             &[
                 Letter { value: 'c', state: LetterState::Fixed },
                 Letter { value: 'g', state: LetterState::Movable },
@@ -408,7 +418,7 @@ mod test {
             ],
         );
         assert_eq!(
-            &grid.vertical_words[2].letters,
+            &grid.vertical_words()[2].letters,
             &[
                 Letter { value: 'e', state: LetterState::Fixed },
                 Letter { value: 'h', state: LetterState::Movable },
@@ -506,7 +516,7 @@ mod test {
         );
 
         assert_eq!(
-            &grid.vertical_words[0].letters,
+            &grid.vertical_words()[0].letters,
             &[
                 Letter { value: 'a', state: LetterState::Movable },
                 Letter { value: 'f', state: LetterState::Movable },
@@ -516,7 +526,7 @@ mod test {
             ],
         );
         assert_eq!(
-            &grid.vertical_words[1].letters,
+            &grid.vertical_words()[1].letters,
             &[
                 Letter { value: 'c', state: LetterState::Movable },
                 Letter { value: 'g', state: LetterState::Movable },
@@ -526,7 +536,7 @@ mod test {
             ],
         );
         assert_eq!(
-            &grid.vertical_words[2].letters,
+            &grid.vertical_words()[2].letters,
             &[
                 Letter { value: 'e', state: LetterState::Movable },
                 Letter { value: 'h', state: LetterState::Movable },
@@ -558,7 +568,7 @@ mod test {
         );
 
         assert_eq!(
-            &grid.vertical_words[0].letters,
+            &grid.vertical_words()[0].letters,
             &[
                 Letter { value: 'a', state: LetterState::Movable },
                 Letter { value: 'f', state: LetterState::Movable },
@@ -568,7 +578,7 @@ mod test {
             ],
         );
         assert_eq!(
-            &grid.vertical_words[1].letters,
+            &grid.vertical_words()[1].letters,
             &[
                 Letter { value: 't', state: LetterState::Fixed },
                 Letter { value: 'i', state: LetterState::Fixed },
@@ -578,7 +588,7 @@ mod test {
             ],
         );
         assert_eq!(
-            &grid.vertical_words[2].letters,
+            &grid.vertical_words()[2].letters,
             &[
                 Letter { value: 'e', state: LetterState::Movable },
                 Letter { value: 'h', state: LetterState::Movable },
