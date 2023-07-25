@@ -261,6 +261,10 @@ impl Grid {
         }
     }
 
+    pub fn words(&self) -> &[Word] {
+        &self.words
+    }
+
     pub fn horizontal_words(&self) -> &[Word] {
         &self.words[0..N_WORDS_ON_AXIS]
     }
