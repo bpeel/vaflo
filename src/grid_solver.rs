@@ -64,10 +64,7 @@ impl<'a> GridSolver<'a> {
 
         // Collect all the movable letters
         let movable_letters: Vec<char> = grid
-            .horizontal_words().iter()
-            .chain(grid.vertical_words().iter())
-            .map(|w| w.letters.iter())
-            .flatten()
+            .letters()
             .filter_map(|letter| {
                 match letter.state {
                     LetterState::Movable => Some(letter.value),
