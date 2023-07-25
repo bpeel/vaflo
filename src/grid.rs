@@ -32,7 +32,7 @@ pub struct Letter {
     pub state: LetterState,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Word {
     pub letters: [Letter; WORD_LENGTH],
 }
