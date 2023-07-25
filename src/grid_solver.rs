@@ -90,7 +90,22 @@ impl<'a> GridSolver<'a> {
     pub fn next(&mut self) -> Option<Grid> {
         while let Some(mut entry) = self.stack.pop() {
             if entry.is_solved {
-                return Some(entry.grid)
+                // Double check that all of the words are really
+                // valid. This can fail if fixing a word also made an
+                // intersecting word be fixed.
+                if entry.grid.words()
+                    .iter()
+                    .find(|w| {
+                        !self.dictionary.contains(
+                            w.letters.iter().map(|l| l.value)
+                        )
+                    })
+                    .is_some()
+                {
+                    continue;
+                } else {
+                    return Some(entry.grid);
+                }
             }
 
             if let Some(word) = entry.word_solver.next() {
