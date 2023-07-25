@@ -16,24 +16,24 @@
 
 use std::iter::repeat;
 
-pub struct Iter<'a, T> {
-    order: &'a mut [T],
+pub struct Iter {
+    order: Vec<usize>,
     stack: Vec<usize>,
 }
 
-impl<'a, T> Iter<'a, T> {
-    pub fn new(items: &'a mut [T], n_take: usize) -> Iter<T> {
+impl Iter {
+    pub fn new(n_items: usize, n_take: usize) -> Iter {
         Iter {
-            order: items,
+            order: (0..n_items).collect(),
             stack: Vec::with_capacity(n_take),
         }
     }
 
-    fn current(&self) -> &[T] {
+    fn current(&self) -> &[usize] {
         &self.order[0..self.stack.capacity()]
     }
 
-    pub fn next(&mut self) -> Option<&[T]> {
+    pub fn next(&mut self) -> Option<&[usize]> {
         // Handle the first call specially
         if self.stack.is_empty() {
             if self.stack.capacity() <= 0
@@ -80,9 +80,8 @@ mod test {
 
     #[test]
     fn all_different() {
-        let mut values = HashSet::<[u8; 3]>::new();
-        let mut items = [0u8, 1u8, 2u8, 3u8, 4u8];
-        let mut iter = Iter::new(&mut items, 3);
+        let mut values = HashSet::<[usize; 3]>::new();
+        let mut iter = Iter::new(5, 3);
 
         while let Some(order) = iter.next() {
             assert_eq!(order.len(), 3);
@@ -106,8 +105,7 @@ mod test {
             [2, 0],
         ];
 
-        let mut items = [0u8, 1u8, 2u8];
-        let mut iter = Iter::new(&mut items, 2);
+        let mut iter = Iter::new(3, 2);
 
         for value in values {
             let Some(permutation) = iter.next()
@@ -122,8 +120,7 @@ mod test {
 
     #[test]
     fn single() {
-        let mut items = [0u8];
-        let mut iter = Iter::new(&mut items, 1);
+        let mut iter = Iter::new(1, 1);
 
         let Some(permutation) = iter.next()
         else {
@@ -135,16 +132,14 @@ mod test {
 
     #[test]
     fn empty() {
-        let mut items = [0u8, 62, 5, 1, 2, 42];
-        let mut iter = Iter::new(&mut items, 0);
+        let mut iter = Iter::new(20, 0);
 
         assert!(iter.next().is_none());
     }
 
     #[test]
     fn take_too_many() {
-        let mut items = [0u8];
-        let mut iter = Iter::new(&mut items, 5);
+        let mut iter = Iter::new(1, 5);
 
         assert!(iter.next().is_none());
     }

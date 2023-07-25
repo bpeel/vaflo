@@ -19,7 +19,8 @@ use super::permute;
 
 pub struct Iter<'a> {
     dictionary: &'a Dictionary,
-    permuter: permute::Iter<'a, char>,
+    permuter: permute::Iter,
+    spare_letters: Vec<char>,
     template: &'a str,
     result_buf: String,
 }
@@ -28,13 +29,16 @@ impl<'a> Iter<'a> {
     pub fn new(
         dictionary: &'a Dictionary,
         template: &'a str,
-        spare_letters: &'a mut [char],
+        spare_letters: &str,
     ) -> Iter<'a> {
         let n_gaps = template.chars().filter(|&c| c == '.').count();
 
+        let spare_letters: Vec<char> = spare_letters.chars().collect();
+
         Iter {
             dictionary,
-            permuter: permute::Iter::new(spare_letters, n_gaps),
+            permuter: permute::Iter::new(spare_letters.len(), n_gaps),
+            spare_letters,
             template,
             result_buf: String::new(),
         }
@@ -48,7 +52,8 @@ impl<'a> Iter<'a> {
 
             for ch in self.template.chars() {
                 if ch == '.' {
-                    self.result_buf.push(*chosen_letters.next().unwrap());
+                    let index = *chosen_letters.next().unwrap();
+                    self.result_buf.push(self.spare_letters[index]);
                 } else {
                     self.result_buf.push(ch);
                 }

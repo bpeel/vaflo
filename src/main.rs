@@ -43,12 +43,10 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     };
 
-    let mut letters: Vec<char> = letters.chars().collect();
-
     let mut word_iter = word_solver::Iter::new(
         &dictionary,
         &word_template,
-        &mut letters
+        &letters,
     );
 
     while let Some(word) = word_iter.next() {
