@@ -218,6 +218,14 @@ impl Grid {
             Ok(())
         }
     }
+
+    pub fn horizontal_words(&self) -> &[Word; N_WORDS_ON_AXIS] {
+        &self.horizontal_words
+    }
+
+    pub fn vertical_words(&self) -> &[Word; N_WORDS_ON_AXIS] {
+        &self.vertical_words
+    }
 }
 
 fn format_character(ch: char, f: &mut fmt::Formatter) -> fmt::Result {
