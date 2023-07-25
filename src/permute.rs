@@ -23,8 +23,6 @@ pub struct Iter<'a, T> {
 
 impl<'a, T> Iter<'a, T> {
     pub fn new(items: &'a mut [T], n_take: usize) -> Iter<T> {
-        assert!(n_take <= items.len());
-
         Iter {
             order: items,
             stack: Vec::with_capacity(n_take),
@@ -38,7 +36,9 @@ impl<'a, T> Iter<'a, T> {
     pub fn next(&mut self) -> Option<&[T]> {
         // Handle the first call specially
         if self.stack.is_empty() {
-            if self.stack.capacity() <= 0 {
+            if self.stack.capacity() <= 0
+                || self.stack.capacity() > self.order.len()
+            {
                 None
             } else {
                 self.stack.extend(repeat(0).take(self.stack.capacity()));
@@ -137,6 +137,14 @@ mod test {
     fn empty() {
         let mut items = [0u8, 62, 5, 1, 2, 42];
         let mut iter = Iter::new(&mut items, 0);
+
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn take_too_many() {
+        let mut items = [0u8];
+        let mut iter = Iter::new(&mut items, 5);
 
         assert!(iter.next().is_none());
     }
