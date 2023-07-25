@@ -16,24 +16,25 @@
 
 use super::dictionary::Dictionary;
 use super::permute;
+use super::grid::{Word, LetterState};
 
 pub struct Iter<'a> {
     dictionary: &'a Dictionary,
     permuter: permute::Iter,
     spare_letters: Vec<char>,
-    template: &'a str,
+    template: Word,
     result_buf: String,
 }
 
 impl<'a> Iter<'a> {
     pub fn new(
         dictionary: &'a Dictionary,
-        template: &'a str,
-        spare_letters: &str,
+        template: Word,
+        spare_letters: Vec<char>,
     ) -> Iter<'a> {
-        let n_gaps = template.chars().filter(|&c| c == '.').count();
-
-        let spare_letters: Vec<char> = spare_letters.chars().collect();
+        let n_gaps = template.letters.iter().filter(|l| {
+            l.state == LetterState::Movable
+        }).count();
 
         Iter {
             dictionary,
@@ -50,12 +51,15 @@ impl<'a> Iter<'a> {
 
             let mut chosen_letters = chosen_letters.iter();
 
-            for ch in self.template.chars() {
-                if ch == '.' {
-                    let index = *chosen_letters.next().unwrap();
-                    self.result_buf.push(self.spare_letters[index]);
-                } else {
-                    self.result_buf.push(ch);
+            for letter in self.template.letters.iter() {
+                match letter.state {
+                    LetterState::Movable => {
+                        let index = *chosen_letters.next().unwrap();
+                        self.result_buf.push(self.spare_letters[index]);
+                    },
+                    LetterState::Fixed => {
+                        self.result_buf.push(letter.value);
+                    },
                 }
             }
 
