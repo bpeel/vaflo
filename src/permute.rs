@@ -31,18 +31,18 @@ impl<'a, T> Iter<'a, T> {
         }
     }
 
-    pub fn current(&self) -> &[T] {
+    fn current(&self) -> &[T] {
         &self.order[0..self.stack.capacity()]
     }
 
-    pub fn next(&mut self) -> bool {
+    pub fn next(&mut self) -> Option<&[T]> {
         // Handle the first call specially
         if self.stack.is_empty() {
             if self.stack.capacity() <= 0 {
-                false
+                None
             } else {
                 self.stack.extend(repeat(0).take(self.stack.capacity()));
-                true
+                Some(self.current())
             }
         } else {
             // Backtrack all of the stack entries that have reached
@@ -63,12 +63,12 @@ impl<'a, T> Iter<'a, T> {
                     // for this.
                     let to_add = self.stack.capacity() - self.stack.len();
                     self.stack.extend(repeat(0).take(to_add));
-                    return true;
+                    return Some(self.current());
                 }
             }
 
             // If we make it here we’ve exhausted every combination
-            false
+            None
         }
     }
 }
@@ -84,8 +84,7 @@ mod test {
         let mut items = [0u8, 1u8, 2u8, 3u8, 4u8];
         let mut iter = Iter::new(&mut items, 3);
 
-        while iter.next() {
-            let order = iter.current();
+        while let Some(order) = iter.next() {
             assert_eq!(order.len(), 3);
             let order = [order[0], order[1], order[2]];
             if !values.insert(order) {
@@ -111,11 +110,14 @@ mod test {
         let mut iter = Iter::new(&mut items, 2);
 
         for value in values {
-            assert!(iter.next());
-            assert_eq!(iter.current(), &value);
+            let Some(permutation) = iter.next()
+            else {
+                unreachable!();
+            };
+            assert_eq!(permutation, &value);
         }
 
-        assert!(!iter.next());
+        assert!(iter.next().is_none());
     }
 
     #[test]
@@ -123,9 +125,12 @@ mod test {
         let mut items = [0u8];
         let mut iter = Iter::new(&mut items, 1);
 
-        assert!(iter.next());
-        assert_eq!(iter.current(), &[0]);
-        assert!(!iter.next());
+        let Some(permutation) = iter.next()
+        else {
+            unreachable!();
+        };
+        assert_eq!(permutation, &[0]);
+        assert!(iter.next().is_none());
     }
 
     #[test]
@@ -133,6 +138,6 @@ mod test {
         let mut items = [0u8, 62, 5, 1, 2, 42];
         let mut iter = Iter::new(&mut items, 0);
 
-        assert!(!iter.next());
+        assert!(iter.next().is_none());
     }
 }
