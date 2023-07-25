@@ -45,8 +45,7 @@ impl<'a> GridSolver<'a> {
     fn push_grid(&mut self, grid: Grid) {
         // Find the unsolved word with the least number of movable letters
         let (word_num, word, is_solved) = match grid
-            .horizontal_words().iter()
-            .chain(grid.vertical_words().iter())
+            .words().iter()
             .map(|w| {
                 (
                     w,
