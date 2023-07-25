@@ -98,15 +98,7 @@ impl<'a> GridSolver<'a> {
             }
 
             if let Some(word) = entry.word_solver.next() {
-                let grid = if entry.word_num < grid::N_WORDS_ON_AXIS {
-                    entry.grid.fix_horizontal_word(entry.word_num, word)
-                } else {
-                    entry.grid.fix_vertical_word(
-                        entry.word_num - grid::N_WORDS_ON_AXIS,
-                        word,
-                    )
-                };
-
+                let grid = entry.grid.fix_word(entry.word_num, word);
                 self.stack.push(entry);
                 self.push_grid(grid);
             }

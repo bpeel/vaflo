@@ -161,8 +161,16 @@ impl FromStr for Grid {
 }
 
 impl Grid {
-    pub fn fix_horizontal_word(&self, word_num: usize, word: &str) -> Grid {
+    pub fn fix_word(&self, word_num: usize, word: &str) -> Grid {
         let mut grid = self.clone();
+
+        let (a_slice, b_slice) = grid.words.split_at_mut(N_WORDS_ON_AXIS);
+
+        let (fix_slice, other_slice, word_num) = if word_num < N_WORDS_ON_AXIS {
+            (a_slice, b_slice, word_num)
+        } else {
+            (b_slice, a_slice, word_num - N_WORDS_ON_AXIS)
+        };
 
         for (i, ch) in word.chars().enumerate() {
             let letter = Letter {
@@ -170,30 +178,10 @@ impl Grid {
                 state: LetterState::Fixed,
             };
 
-            grid.horizontal_words_mut()[word_num].letters[i] = letter;
+            fix_slice[word_num].letters[i] = letter;
 
             if i & 1 == 0 {
-                grid.vertical_words_mut()[i / 2].letters[word_num * 2] = letter;
-            }
-        }
-
-        grid
-    }
-
-    pub fn fix_vertical_word(&self, word_num: usize, word: &str) -> Grid {
-        let mut grid = self.clone();
-
-        for (i, ch) in word.chars().enumerate() {
-            let letter = Letter {
-                value: ch,
-                state: LetterState::Fixed,
-            };
-
-            grid.vertical_words_mut()[word_num].letters[i] = letter;
-
-            if i & 1 == 0 {
-                let word = &mut grid.horizontal_words_mut()[i / 2];
-                word.letters[word_num * 2] = letter;
+                other_slice[i / 2].letters[word_num * 2] = letter;
             }
         }
 
@@ -508,7 +496,7 @@ mod test {
                     qrstu"
             .parse::<Grid>().unwrap();
 
-        let grid = grid.fix_horizontal_word(1, "tiger");
+        let grid = grid.fix_word(1, "tiger");
 
         assert_eq!(
             &grid.to_string(),
@@ -560,7 +548,7 @@ mod test {
                     qrstu"
             .parse::<Grid>().unwrap();
 
-        let grid = grid.fix_vertical_word(1, "tiger");
+        let grid = grid.fix_word(4, "tiger");
 
         assert_eq!(
             &grid.to_string(),
