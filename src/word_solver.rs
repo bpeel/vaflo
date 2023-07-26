@@ -30,9 +30,12 @@ impl<'a> Iter<'a> {
     pub fn new(
         dictionary: &'a Dictionary,
         template: Word,
-        spare_letters: Vec<char>,
+        mut spare_letters: Vec<char>,
     ) -> Iter<'a> {
         let n_gaps = template.letters.iter().filter(|l| l.is_none()).count();
+
+        // Sort the letters to make it easier to detect duplicate permutations
+        spare_letters.sort_unstable();
 
         Iter {
             dictionary,
@@ -45,6 +48,10 @@ impl<'a> Iter<'a> {
 
     pub fn next(&mut self) -> Option<&str> {
         while let Some(chosen_letters) = self.permuter.next() {
+            if !is_unique_permutation(&self.spare_letters, chosen_letters) {
+                continue;
+            }
+
             self.result_buf.clear();
 
             let mut chosen_letters = chosen_letters.iter();
@@ -66,4 +73,36 @@ impl<'a> Iter<'a> {
 
         None
     }
+}
+
+fn is_unique_permutation(
+    spare_letters: &[char],
+    permutation: &[usize],
+) -> bool {
+    // When there are multiple copies of the same letter, we don’t
+    // want to reuse permutations that result in the same selection of
+    // letters. To detect this we only allow permutations that use
+    // duplicate letters in order starting from the first one.
+
+    let mut used_letters = 0u32;
+
+    for &index in permutation.iter() {
+        let letter = spare_letters[index];
+
+        // Check that all of the previous copies of the same letter
+        // are also used
+        for index in (0..index).rev() {
+            if spare_letters[index] != letter {
+                break;
+            }
+
+            if used_letters & (1u32 << index) == 0 {
+                return false;
+            }
+        }
+
+        used_letters |= 1u32 << index;
+    }
+
+    true
 }
