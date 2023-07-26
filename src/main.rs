@@ -16,6 +16,49 @@ fn load_dictionary(filename: &OsStr) -> Result<Dictionary, io::Error> {
     std::fs::read(filename).map(|data| Dictionary::new(data.into_boxed_slice()))
 }
 
+fn grid_to_array(grid: &grid::Grid) -> Vec<char> {
+    let mut letters = Vec::new();
+
+    for word_num in 0..grid::N_WORDS_ON_AXIS {
+        for letter_num in 0..grid::WORD_LENGTH {
+            letters.push(grid.horizontal_letter(word_num, letter_num).value);
+        }
+
+        let letter_num = word_num * 2 + 1;
+
+        if letter_num < grid::WORD_LENGTH {
+            for word_num in 0..grid::N_WORDS_ON_AXIS {
+                letters.push(grid.vertical_letter(word_num, letter_num).value);
+            }
+        }
+    }
+
+    letters
+}
+
+fn word_grid_to_array(grid: &word_grid::WordGrid) -> Vec<char> {
+    let mut letters = Vec::new();
+
+    for word_num in 0..grid::N_WORDS_ON_AXIS {
+        let word = &grid.horizontal_words()[word_num];
+
+        for letter_num in 0..grid::WORD_LENGTH {
+            letters.push(word.letters[letter_num].unwrap());
+        }
+
+        let letter_num = word_num * 2 + 1;
+
+        if letter_num < grid::WORD_LENGTH {
+            for word_num in 0..grid::N_WORDS_ON_AXIS {
+                let word = &grid.vertical_words()[word_num];
+                letters.push(word.letters[letter_num].unwrap());
+            }
+        }
+    }
+
+    letters
+}
+
 fn run_grid(dictionary: &Dictionary, grid_buf: &str) -> bool {
     let grid = match grid_buf.parse::<grid::Grid>() {
         Err(e) => {
@@ -24,6 +67,8 @@ fn run_grid(dictionary: &Dictionary, grid_buf: &str) -> bool {
         },
         Ok(g) => g,
     };
+
+    let start_order = grid_to_array(&grid);
 
     let word_grid = word_grid::WordGrid::new(&grid);
     let mut solver = grid_solver::GridSolver::new(word_grid, dictionary);
@@ -38,6 +83,23 @@ fn run_grid(dictionary: &Dictionary, grid_buf: &str) -> bool {
         }
 
         println!("{}", grid);
+
+        let target_order = word_grid_to_array(&grid);
+
+        match swap_solver::solve(&start_order, &target_order) {
+            Some(swaps) => {
+                print!("{} swaps: ", swaps.len());
+
+                for (i, swap) in swaps.into_iter().enumerate() {
+                    if i > 0 {
+                        print!(" ");
+                    }
+                    print!("{},{}", swap.0, swap.1);
+                }
+                println!();
+            },
+            None => println!("No solution found"),
+        }
     }
 
     true
