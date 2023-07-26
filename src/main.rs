@@ -4,6 +4,7 @@ mod word_solver;
 mod grid;
 mod word_grid;
 mod grid_solver;
+mod pairs;
 
 use std::process::ExitCode;
 use std::io;
