@@ -15,8 +15,8 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::dictionary::Dictionary;
-use super::{grid, word_solver};
-use grid::{Grid, LetterState};
+use super::{word_grid, word_solver};
+use word_grid::WordGrid;
 
 pub struct GridSolver<'a> {
     dictionary: &'a Dictionary,
@@ -24,14 +24,14 @@ pub struct GridSolver<'a> {
 }
 
 struct StackEntry<'a> {
-    grid: Grid,
+    grid: WordGrid,
     word_num: usize,
     word_solver: word_solver::Iter<'a>,
     is_solved: bool,
 }
 
 impl<'a> GridSolver<'a> {
-    pub fn new(grid: Grid, dictionary: &'a Dictionary) -> GridSolver<'a> {
+    pub fn new(grid: WordGrid, dictionary: &'a Dictionary) -> GridSolver<'a> {
         let mut solver = GridSolver {
             dictionary,
             stack: Vec::new(),
@@ -42,16 +42,14 @@ impl<'a> GridSolver<'a> {
         solver
     }
 
-    fn push_grid(&mut self, grid: Grid) {
+    fn push_grid(&mut self, grid: WordGrid) {
         // Find the unsolved word with the least number of movable letters
         let (word_num, word, is_solved) = match grid
             .words().iter()
             .map(|w| {
                 (
                     w,
-                    w.letters.iter().filter(|l| {
-                        l.state == LetterState::Movable
-                    }).count()
+                    w.letters.iter().filter(|l| l.is_none()).count(),
                 )
             })
             .enumerate()
@@ -62,21 +60,10 @@ impl<'a> GridSolver<'a> {
             None => (0, &grid.horizontal_words()[0], true),
         };
 
-        // Collect all the movable letters
-        let movable_letters: Vec<char> = grid
-            .letters()
-            .filter_map(|letter| {
-                match letter.state {
-                    LetterState::Movable => Some(letter.value),
-                    LetterState::Fixed => None,
-                }
-            })
-            .collect();
-
         let word_solver = word_solver::Iter::new(
             self.dictionary,
             word.clone(),
-            movable_letters,
+            grid.spare_letters().to_owned(),
         );
 
         self.stack.push(StackEntry {
@@ -87,7 +74,7 @@ impl<'a> GridSolver<'a> {
         });
     }
 
-    pub fn next(&mut self) -> Option<Grid> {
+    pub fn next(&mut self) -> Option<WordGrid> {
         while let Some(mut entry) = self.stack.pop() {
             if entry.is_solved {
                 // Double check that all of the words are really
@@ -97,7 +84,7 @@ impl<'a> GridSolver<'a> {
                     .iter()
                     .find(|w| {
                         !self.dictionary.contains(
-                            w.letters.iter().map(|l| l.value)
+                            w.letters.iter().map(|l| l.unwrap())
                         )
                     })
                     .is_some()

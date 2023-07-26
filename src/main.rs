@@ -2,6 +2,7 @@ mod permute;
 mod dictionary;
 mod word_solver;
 mod grid;
+mod word_grid;
 mod grid_solver;
 
 use std::process::ExitCode;
@@ -22,7 +23,8 @@ fn run_grid(dictionary: &Dictionary, grid_buf: &str) -> bool {
         Ok(g) => g,
     };
 
-    let mut solver = grid_solver::GridSolver::new(grid, dictionary);
+    let word_grid = word_grid::WordGrid::new(&grid);
+    let mut solver = grid_solver::GridSolver::new(word_grid, dictionary);
 
     let mut first = true;
 

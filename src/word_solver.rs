@@ -16,7 +16,7 @@
 
 use super::dictionary::Dictionary;
 use super::permute;
-use super::grid::{Word, LetterState};
+use super::word_grid::Word;
 
 pub struct Iter<'a> {
     dictionary: &'a Dictionary,
@@ -32,9 +32,7 @@ impl<'a> Iter<'a> {
         template: Word,
         spare_letters: Vec<char>,
     ) -> Iter<'a> {
-        let n_gaps = template.letters.iter().filter(|l| {
-            l.state == LetterState::Movable
-        }).count();
+        let n_gaps = template.letters.iter().filter(|l| l.is_none()).count();
 
         Iter {
             dictionary,
@@ -52,14 +50,12 @@ impl<'a> Iter<'a> {
             let mut chosen_letters = chosen_letters.iter();
 
             for letter in self.template.letters.iter() {
-                match letter.state {
-                    LetterState::Movable => {
+                match letter {
+                    None => {
                         let index = *chosen_letters.next().unwrap();
                         self.result_buf.push(self.spare_letters[index]);
                     },
-                    LetterState::Fixed => {
-                        self.result_buf.push(letter.value);
-                    },
+                    Some(letter) => self.result_buf.push(*letter),
                 }
             }
 
