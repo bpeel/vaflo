@@ -15,4 +15,10 @@ path = "src/main.rs"
 name = "solve-swap"
 path = "src/swap_main.rs"
 
+[[bin]]
+name = "editor"
+path = "src/editor.rs"
+
 [dependencies]
+gettext-rs = "0.7.0"
+ncurses = "5.101.0"
