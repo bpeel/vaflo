@@ -21,4 +21,4 @@ path = "src/editor.rs"
 
 [dependencies]
 gettext-rs = "0.7.0"
-ncurses = "5.101.0"
+ncurses = { version = "5.101.0", features = ["wide"] }

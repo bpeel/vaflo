@@ -264,23 +264,35 @@ impl Editor {
         self.redraw();
     }
 
-    fn handle_key(&mut self, key: i32) {
+    fn handle_key_code(&mut self, key: i32) {
         match key {
             ncurses::KEY_UP => self.move_cursor(0, -1),
             ncurses::KEY_DOWN => self.move_cursor(0, 1),
             ncurses::KEY_LEFT => self.move_cursor(-1, 0),
             ncurses::KEY_RIGHT => self.move_cursor(1, 0),
-            9 => self.toggle_grid(),
-            46 => self.toggle_edit_direction(),
-            key => {
-                if let Some(ch) = char::from_u32(key as u32) {
-                    if ch.is_alphabetic() {
-                        for ch in ch.to_uppercase() {
-                            self.add_character(ch);
-                        }
+            _ => (),
+        }
+    }
+
+    fn handle_char(&mut self, ch: ncurses::winttype) {
+        if let Some(ch) = char::from_u32(ch as u32) {
+            match ch {
+                '\t' => self.toggle_grid(),
+                '.' => self.toggle_edit_direction(),
+                ch if ch.is_alphabetic() => {
+                    for ch in ch.to_uppercase() {
+                        self.add_character(ch);
                     }
-                }
-            },
+                },
+                _ => (),
+            }
+        }
+    }
+
+    fn handle_key(&mut self, key: ncurses::WchResult) {
+        match key {
+            ncurses::WchResult::KeyCode(code) => self.handle_key_code(code),
+            ncurses::WchResult::Char(ch) => self.handle_char(ch),
         }
     }
 
@@ -313,8 +325,8 @@ fn main() -> ExitCode {
     editor.redraw();
 
     loop {
-        match ncurses::getch() {
-            key => editor.handle_key(key),
+        if let Some(key) = ncurses::get_wch() {
+            editor.handle_key(key);
         }
     }
 
