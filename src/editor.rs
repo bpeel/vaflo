@@ -17,7 +17,7 @@
 mod grid;
 
 use std::process::ExitCode;
-use grid::WORD_LENGTH;
+use grid::{WORD_LENGTH, N_WORDS_ON_AXIS};
 
 struct SolutionGrid {
     // The solution contains the actual letters. The grid is stored as
@@ -55,6 +55,7 @@ struct Editor {
     cursor_y: i32,
     edit_direction: EditDirection,
     current_grid: GridChoice,
+    words: [String; N_WORDS_ON_AXIS * 2],
 }
 
 fn is_gap_space(x: i32, y: i32) -> bool {
@@ -136,7 +137,7 @@ impl GridPair {
 
 impl Editor {
     fn new(grid_x: i32, grid_y: i32) -> Editor {
-        Editor {
+        let mut editor = Editor {
             grid_x,
             grid_y,
             grid_pair: GridPair::new(),
@@ -144,7 +145,12 @@ impl Editor {
             cursor_y: 0,
             edit_direction: EditDirection::Right,
             current_grid: GridChoice::Solution,
-        }
+            words: Default::default(),
+        };
+
+        editor.update_words();
+
+        editor
     }
 
     fn redraw(&self) {
@@ -156,11 +162,22 @@ impl Editor {
             EditDirection::Down => 'v',
         };
 
-        ncurses::mvaddch(
-            self.grid_y + 1,
-            self.grid_x + GridPair::puzzle_x() + WORD_LENGTH as i32 + 5,
-            direction_ch as u32,
-        );
+        let right_side = self.grid_x
+            + GridPair::puzzle_x()
+            + WORD_LENGTH as i32
+            + 5;
+
+        ncurses::mvaddch(self.grid_y, right_side, direction_ch as u32);
+
+        ncurses::mvaddstr(self.grid_y + 2, right_side, "Words:");
+
+        for (i, word) in self.words.iter().enumerate() {
+            ncurses::mvaddstr(
+                self.grid_y + 3 + i as i32,
+                right_side,
+                word,
+            );
+        }
 
         self.position_cursor();
     }
@@ -223,6 +240,7 @@ impl Editor {
         };
 
         self.grid_pair.solution.letters[position] = ch;
+        self.update_words();
 
         match self.edit_direction {
             EditDirection::Down => {
@@ -263,6 +281,22 @@ impl Editor {
                     }
                 }
             },
+        }
+    }
+
+    fn update_words(&mut self) {
+        for word in 0..N_WORDS_ON_AXIS {
+            let horizontal = &mut self.words[word];
+            horizontal.clear();
+            horizontal.extend((0..WORD_LENGTH).map(|pos| {
+                self.grid_pair.solution.letters[pos + word * WORD_LENGTH * 2]
+            }));
+
+            let vertical = &mut self.words[word + N_WORDS_ON_AXIS];
+            vertical.clear();
+            vertical.extend((0..WORD_LENGTH).map(|pos| {
+                self.grid_pair.solution.letters[pos * WORD_LENGTH + word * 2]
+            }));
         }
     }
 }
