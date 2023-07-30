@@ -48,6 +48,7 @@ enum GridChoice {
 }
 
 struct Editor {
+    should_quit: bool,
     grid_x: i32,
     grid_y: i32,
     grid_pair: GridPair,
@@ -143,6 +144,7 @@ impl GridPair {
 impl Editor {
     fn new(grid_x: i32, grid_y: i32) -> Editor {
         let mut editor = Editor {
+            should_quit: false,
             grid_x,
             grid_y,
             grid_pair: GridPair::new(),
@@ -284,6 +286,7 @@ impl Editor {
             match ch {
                 '\t' => self.toggle_grid(),
                 '.' => self.toggle_edit_direction(),
+                '\u{0003}' => self.should_quit = true, // Ctrl+C
                 ch if ch.is_alphabetic() => {
                     for ch in ch.to_uppercase() {
                         self.add_character(ch);
@@ -322,6 +325,7 @@ fn main() -> ExitCode {
     gettextrs::setlocale(gettextrs::LocaleCategory::LcAll, "");
 
     ncurses::initscr();
+    ncurses::raw();
     ncurses::noecho();
     ncurses::keypad(ncurses::stdscr(), true);
 
@@ -329,7 +333,7 @@ fn main() -> ExitCode {
 
     editor.redraw();
 
-    loop {
+    while !editor.should_quit {
         if let Some(key) = ncurses::get_wch() {
             editor.handle_key(key);
         }
