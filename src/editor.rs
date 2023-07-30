@@ -26,10 +26,23 @@ struct SolutionGrid {
     letters: [char; WORD_LENGTH * WORD_LENGTH]
 }
 
+#[derive(Clone, Copy)]
+enum PuzzleSquareState {
+    Correct,
+    WrongPosition,
+    Wrong,
+}
+
+#[derive(Clone, Copy)]
+struct PuzzleSquare {
+    position: usize,
+    state: PuzzleSquareState,
+}
+
 struct PuzzleGrid {
     // The puzzle is stored is indices into the solution grid so that
     // changing a letter will change it in both grids
-    positions: [usize; WORD_LENGTH * WORD_LENGTH]
+    squares: [PuzzleSquare; WORD_LENGTH * WORD_LENGTH]
 }
 
 struct GridPair {
@@ -94,14 +107,18 @@ impl SolutionGrid {
 
 impl PuzzleGrid {
     fn new() -> PuzzleGrid {
-        let mut positions: [usize; WORD_LENGTH * WORD_LENGTH]
-            = Default::default();
+        let default_square = PuzzleSquare {
+            position: 0,
+            state: PuzzleSquareState::Correct,
+        };
 
-        for (i, position) in positions.iter_mut().enumerate() {
-            *position = i;
+        let mut squares = [default_square; WORD_LENGTH * WORD_LENGTH];
+
+        for (i, square) in squares.iter_mut().enumerate() {
+            square.position = i;
         }
 
-        PuzzleGrid { positions }
+        PuzzleGrid { squares }
     }
 
     fn draw(
@@ -118,16 +135,20 @@ impl PuzzleGrid {
                 if is_gap_space(x as i32, y as i32) {
                     ncurses::addch(' ' as u32);
                 } else {
-                    let position = self.positions[y * WORD_LENGTH + x];
+                    let square = self.squares[y * WORD_LENGTH + x];
                     let is_selected = selected_position
-                        .map(|p| p == position)
+                        .map(|p| p == square.position)
                         .unwrap_or(false);
 
                     if is_selected {
                         ncurses::attron(ncurses::A_BOLD());
                     }
 
-                    addch_utf8(solution.letters[position]);
+                    ncurses::attron(ncurses::COLOR_PAIR(square.state.color()));
+
+                    addch_utf8(solution.letters[square.position]);
+
+                    ncurses::attroff(ncurses::COLOR_PAIR(square.state.color()));
 
                     if is_selected {
                         ncurses::attroff(ncurses::A_BOLD());
@@ -161,6 +182,84 @@ impl GridPair {
             &self.solution,
             selected_position,
         );
+    }
+
+    fn update_square_letters_for_word<I>(&mut self, positions: I)
+    where
+        I: IntoIterator<Item = usize> + Clone
+    {
+        let mut used_letters = 0;
+
+        // Mark all of the letters in the correct position already as used
+        for (i, position) in positions.clone().into_iter().enumerate() {
+            if matches!(
+                self.puzzle.squares[position].state,
+                PuzzleSquareState::Correct,
+            ) {
+                used_letters |= 1 << i;
+            }
+        }
+
+        for position in positions.clone() {
+            let letter = self.solution.letters[position];
+            let mut best_pos = None;
+
+            for (i, position) in positions.clone().into_iter().enumerate() {
+                let square = self.puzzle.squares[position];
+                let puzzle_letter =
+                    self.solution.letters[square.position];
+
+                if used_letters & (1 << i) == 0 && puzzle_letter == letter {
+                    // It’s better to use a letter in the
+                    // WrongPosition state in case it was marked by a
+                    // word that crosses this one because we don’t
+                    // want to have two yellow letters for the same
+                    // letter.
+                    if matches!(
+                        square.state,
+                        PuzzleSquareState::WrongPosition,
+                    ) {
+                        best_pos = Some((i, position));
+                        break;
+                    } else if best_pos.is_none() {
+                        best_pos = Some((i, position));
+                    }
+                }
+            }
+
+            if let Some((i, position)) = best_pos {
+                used_letters |= 1 << i;
+                self.puzzle.squares[position].state =
+                    PuzzleSquareState::WrongPosition;
+            }
+        }
+    }
+
+    fn update_square_states(&mut self) {
+        for (i, square) in self.puzzle.squares.iter_mut().enumerate() {
+            if self.solution.letters[i]
+                == self.solution.letters[square.position]
+            {
+                square.state = PuzzleSquareState::Correct;
+            } else {
+                square.state = PuzzleSquareState::Wrong;
+            }
+        }
+
+        for i in 0..N_WORDS_ON_AXIS {
+            self.update_square_letters_for_word(
+                i * 2 * WORD_LENGTH..(i * 2 + 1) * WORD_LENGTH,
+            );
+            self.update_square_letters_for_word(
+                (i..i + WORD_LENGTH * WORD_LENGTH).step_by(WORD_LENGTH),
+            );
+        }
+    }
+}
+
+impl PuzzleSquareState {
+    fn color(&self) -> i16 {
+        *self as i16 + 1
     }
 }
 
@@ -274,11 +373,14 @@ impl Editor {
 
         let position = match self.current_grid {
             GridChoice::Solution => position,
-            GridChoice::Puzzle => self.grid_pair.puzzle.positions[position],
+            GridChoice::Puzzle => {
+                self.grid_pair.puzzle.squares[position].position
+            },
         };
 
         self.grid_pair.solution.letters[position] = ch;
         self.update_words();
+        self.grid_pair.update_square_states();
 
         match self.edit_direction {
             EditDirection::Down => {
@@ -329,8 +431,9 @@ impl Editor {
         if matches!(self.current_grid, GridChoice::Puzzle) {
             if let Some(pos) = self.selected_position {
                 let cursor_pos = self.cursor_pos();
-                self.grid_pair.puzzle.positions.swap(pos, cursor_pos);
+                self.grid_pair.puzzle.squares.swap(pos, cursor_pos);
                 self.selected_position = None;
+                self.grid_pair.update_square_states();
                 self.redraw();
             }
         }
@@ -385,6 +488,23 @@ fn main() -> ExitCode {
     ncurses::raw();
     ncurses::noecho();
     ncurses::keypad(ncurses::stdscr(), true);
+    ncurses::start_color();
+
+    ncurses::init_pair(
+        PuzzleSquareState::Correct.color(),
+        ncurses::COLOR_GREEN,
+        ncurses::COLOR_BLACK,
+    );
+    ncurses::init_pair(
+        PuzzleSquareState::WrongPosition.color(),
+        ncurses::COLOR_YELLOW,
+        ncurses::COLOR_BLACK,
+    );
+    ncurses::init_pair(
+        PuzzleSquareState::Wrong.color(),
+        ncurses::COLOR_WHITE,
+        ncurses::COLOR_BLACK,
+    );
 
     let mut editor = Editor::new(0, 0);
 
