@@ -245,6 +245,13 @@ impl Editor {
         }
     }
 
+    fn backspace(&mut self) {
+        match self.edit_direction {
+            EditDirection::Right => self.move_cursor(-1, 0),
+            EditDirection::Down => self.move_cursor(0, -1),
+        }
+    }
+
     fn toggle_grid(&mut self) {
         self.current_grid = match self.current_grid {
             GridChoice::Solution => GridChoice::Puzzle,
@@ -301,6 +308,7 @@ impl Editor {
             ncurses::KEY_DOWN => self.move_cursor(0, 1),
             ncurses::KEY_LEFT => self.move_cursor(-1, 0),
             ncurses::KEY_RIGHT => self.move_cursor(1, 0),
+            ncurses::KEY_BACKSPACE => self.backspace(),
             _ => (),
         }
     }
