@@ -15,9 +15,11 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 mod grid;
+mod dictionary;
 
 use std::process::ExitCode;
 use grid::{WORD_LENGTH, N_WORDS_ON_AXIS};
+use dictionary::Dictionary;
 
 struct SolutionGrid {
     // The solution contains the actual letters. The grid is stored as
@@ -60,7 +62,14 @@ enum GridChoice {
     Puzzle,
 }
 
+#[derive(Default)]
+struct Word {
+    valid: bool,
+    text: String,
+}
+
 struct Editor {
+    dictionary: Dictionary,
     should_quit: bool,
     grid_x: i32,
     grid_y: i32,
@@ -69,7 +78,7 @@ struct Editor {
     cursor_y: i32,
     edit_direction: EditDirection,
     current_grid: GridChoice,
-    words: [String; N_WORDS_ON_AXIS * 2],
+    words: [Word; N_WORDS_ON_AXIS * 2],
     selected_position: Option<usize>,
 }
 
@@ -264,8 +273,9 @@ impl PuzzleSquareState {
 }
 
 impl Editor {
-    fn new(grid_x: i32, grid_y: i32) -> Editor {
+    fn new(dictionary: Dictionary, grid_x: i32, grid_y: i32) -> Editor {
         let mut editor = Editor {
+            dictionary,
             should_quit: false,
             grid_x,
             grid_y,
@@ -305,7 +315,15 @@ impl Editor {
             ncurses::mvaddstr(
                 self.grid_y + 3 + i as i32,
                 right_side,
-                word,
+                &word.text,
+            );
+            ncurses::addch(' ' as u32);
+            ncurses::addstr(
+                if word.valid {
+                    "✅"
+                } else {
+                    "❌"
+                }
             );
         }
 
@@ -467,22 +485,52 @@ impl Editor {
     fn update_words(&mut self) {
         for word in 0..N_WORDS_ON_AXIS {
             let horizontal = &mut self.words[word];
-            horizontal.clear();
-            horizontal.extend((0..WORD_LENGTH).map(|pos| {
+            horizontal.text.clear();
+            horizontal.text.extend((0..WORD_LENGTH).map(|pos| {
                 self.grid_pair.solution.letters[pos + word * WORD_LENGTH * 2]
             }));
 
             let vertical = &mut self.words[word + N_WORDS_ON_AXIS];
-            vertical.clear();
-            vertical.extend((0..WORD_LENGTH).map(|pos| {
+            vertical.text.clear();
+            vertical.text.extend((0..WORD_LENGTH).map(|pos| {
                 self.grid_pair.solution.letters[pos * WORD_LENGTH + word * 2]
             }));
+        }
+
+        for word in self.words.iter_mut() {
+            word.valid = self.dictionary.contains(word.text.chars());
         }
     }
 }
 
+fn load_dictionary() -> Result<Dictionary, ()> {
+    let data = match std::env::args_os().nth(1) {
+        Some(filename) => {
+            match std::fs::read(&filename) {
+                Err(e) => {
+                    eprintln!(
+                        "{}: {}",
+                        filename.to_string_lossy(),
+                        e,
+                    );
+                    return Err(());
+                },
+                Ok(d) => d,
+            }
+        },
+        None => Vec::new(),
+    };
+
+    Ok(Dictionary::new(data.into_boxed_slice()))
+}
+
 fn main() -> ExitCode {
     gettextrs::setlocale(gettextrs::LocaleCategory::LcAll, "");
+
+    let Ok(dictionary) = load_dictionary()
+    else {
+        return ExitCode::FAILURE;
+    };
 
     ncurses::initscr();
     ncurses::raw();
@@ -506,7 +554,7 @@ fn main() -> ExitCode {
         ncurses::COLOR_BLACK,
     );
 
-    let mut editor = Editor::new(0, 0);
+    let mut editor = Editor::new(dictionary, 0, 0);
 
     editor.redraw();
 
