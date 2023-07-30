@@ -57,6 +57,7 @@ struct Editor {
     edit_direction: EditDirection,
     current_grid: GridChoice,
     words: [String; N_WORDS_ON_AXIS * 2],
+    selected_position: Option<usize>,
 }
 
 fn is_gap_space(x: i32, y: i32) -> bool {
@@ -103,7 +104,13 @@ impl PuzzleGrid {
         PuzzleGrid { positions }
     }
 
-    fn draw(&self, grid_x: i32, grid_y: i32, solution: &SolutionGrid) {
+    fn draw(
+        &self,
+        grid_x: i32,
+        grid_y: i32,
+        solution: &SolutionGrid,
+        selected_position: Option<usize>,
+    ) {
         for y in 0..WORD_LENGTH {
             ncurses::mv(grid_y + y as i32, grid_x);
 
@@ -112,7 +119,19 @@ impl PuzzleGrid {
                     ncurses::addch(' ' as u32);
                 } else {
                     let position = self.positions[y * WORD_LENGTH + x];
+                    let is_selected = selected_position
+                        .map(|p| p == position)
+                        .unwrap_or(false);
+
+                    if is_selected {
+                        ncurses::attron(ncurses::A_BOLD());
+                    }
+
                     addch_utf8(solution.letters[position]);
+
+                    if is_selected {
+                        ncurses::attroff(ncurses::A_BOLD());
+                    }
                 }
             }
         }
@@ -131,13 +150,17 @@ impl GridPair {
         WORD_LENGTH.max(9) as i32 + 2
     }
 
-    fn draw(&self, grid_x: i32, grid_y: i32) {
+    fn draw(&self, grid_x: i32, grid_y: i32, selected_position: Option<usize>) {
         ncurses::mvaddstr(grid_y, grid_x, "Solution:");
         self.solution.draw(grid_x, grid_y + 1);
 
         let grid_x = grid_x + GridPair::puzzle_x();
         ncurses::mvaddstr(grid_y, grid_x, "Puzzle:");
-        self.puzzle.draw(grid_x, grid_y + 1, &self.solution);
+        self.puzzle.draw(
+            grid_x, grid_y + 1,
+            &self.solution,
+            selected_position,
+        );
     }
 }
 
@@ -153,6 +176,7 @@ impl Editor {
             edit_direction: EditDirection::Right,
             current_grid: GridChoice::Solution,
             words: Default::default(),
+            selected_position: None,
         };
 
         editor.update_words();
@@ -162,7 +186,7 @@ impl Editor {
 
     fn redraw(&self) {
         ncurses::clear();
-        self.grid_pair.draw(self.grid_x, self.grid_y);
+        self.grid_pair.draw(self.grid_x, self.grid_y, self.selected_position);
 
         let direction_ch = match self.edit_direction {
             EditDirection::Right => '>',
@@ -281,12 +305,37 @@ impl Editor {
         }
     }
 
+    fn cursor_pos(&self) -> usize {
+        self.cursor_x as usize + self.cursor_y as usize * WORD_LENGTH
+    }
+
+    fn handle_mark(&mut self) {
+        if matches!(self.current_grid, GridChoice::Puzzle) {
+            self.selected_position = Some(self.cursor_pos());
+
+            self.redraw();
+        }
+    }
+
+    fn handle_swap(&mut self) {
+        if matches!(self.current_grid, GridChoice::Puzzle) {
+            if let Some(pos) = self.selected_position {
+                let cursor_pos = self.cursor_pos();
+                self.grid_pair.puzzle.positions.swap(pos, cursor_pos);
+                self.selected_position = None;
+                self.redraw();
+            }
+        }
+    }
+
     fn handle_char(&mut self, ch: ncurses::winttype) {
         if let Some(ch) = char::from_u32(ch as u32) {
             match ch {
                 '\t' => self.toggle_grid(),
                 '.' => self.toggle_edit_direction(),
+                ' ' => self.handle_mark(),
                 '\u{0003}' => self.should_quit = true, // Ctrl+C
+                '\u{0013}' => self.handle_swap(), // Ctrl+S
                 ch if ch.is_alphabetic() => {
                     for ch in ch.to_uppercase() {
                         self.add_character(ch);
