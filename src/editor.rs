@@ -62,6 +62,12 @@ fn is_gap_space(x: i32, y: i32) -> bool {
     x & 1 == 1 && y & 1 == 1
 }
 
+fn addch_utf8(ch: char) {
+    let mut buf = [0u8; 4];
+
+    ncurses::addstr(ch.encode_utf8(&mut buf));
+}
+
 impl SolutionGrid {
     fn new() -> SolutionGrid {
         SolutionGrid {
@@ -77,7 +83,7 @@ impl SolutionGrid {
                 if is_gap_space(x as i32, y as i32) {
                     ncurses::addch(' ' as u32);
                 } else {
-                    ncurses::addch(self.letters[y * WORD_LENGTH + x] as u32);
+                    addch_utf8(self.letters[y * WORD_LENGTH + x]);
                 }
             }
         }
@@ -105,8 +111,7 @@ impl PuzzleGrid {
                     ncurses::addch(' ' as u32);
                 } else {
                     let position = self.positions[y * WORD_LENGTH + x];
-                    let letter = solution.letters[position];
-                    ncurses::addch(letter as u32);
+                    addch_utf8(solution.letters[position]);
                 }
             }
         }
