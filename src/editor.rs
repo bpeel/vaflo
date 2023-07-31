@@ -30,6 +30,7 @@ use std::thread;
 use word_grid::WordGrid;
 use grid_solver::GridSolver;
 
+#[derive(Clone)]
 struct SolutionGrid {
     // The solution contains the actual letters. The grid is stored as
     // an array including positions for the gaps to make it easier to
@@ -50,12 +51,14 @@ struct PuzzleSquare {
     state: PuzzleSquareState,
 }
 
+#[derive(Clone)]
 struct PuzzleGrid {
     // The puzzle is stored is indices into the solution grid so that
     // changing a letter will change it in both grids
     squares: [PuzzleSquare; WORD_LENGTH * WORD_LENGTH]
 }
 
+#[derive(Clone)]
 struct GridPair {
     solution: SolutionGrid,
     puzzle: PuzzleGrid,
@@ -79,7 +82,7 @@ struct Word {
 
 struct Editor {
     dictionary: Arc<Dictionary>,
-    grid_sender: mpsc::Sender<(usize, WordGrid)>,
+    grid_sender: mpsc::Sender<(usize, GridPair)>,
     should_quit: bool,
     grid_x: i32,
     grid_y: i32,
@@ -105,7 +108,7 @@ struct SolutionEvent {
 
 struct SolverThread {
     join_handle: thread::JoinHandle<()>,
-    grid_sender: mpsc::Sender<(usize, WordGrid)>,
+    grid_sender: mpsc::Sender<(usize, GridPair)>,
     event_receiver: mpsc::Receiver<SolutionEvent>,
 }
 
@@ -291,6 +294,37 @@ impl GridPair {
             );
         }
     }
+
+    fn to_grid(&self) -> Result<grid::Grid, grid::ParseError> {
+        let mut grid_string = String::new();
+
+        for y in 0..WORD_LENGTH {
+            for x in 0..WORD_LENGTH {
+                if is_gap_space(x as i32, y as i32) {
+                    grid_string.push(' ');
+                } else {
+                    let pos = x + y * WORD_LENGTH;
+                    let square = &self.puzzle.squares[pos];
+                    let letter = self.solution.letters[square.position];
+
+                    match square.state {
+                        PuzzleSquareState::Correct => {
+                            grid_string.extend(letter.to_uppercase());
+                        },
+                        PuzzleSquareState::Wrong
+                            | PuzzleSquareState::WrongPosition =>
+                        {
+                            grid_string.extend(letter.to_lowercase());
+                        },
+                    }
+                }
+            }
+
+            grid_string.push('\n');
+        }
+
+        grid_string.parse::<grid::Grid>()
+    }
 }
 
 impl PuzzleSquareState {
@@ -302,7 +336,7 @@ impl PuzzleSquareState {
 impl Editor {
     fn new(
         dictionary: Arc<Dictionary>,
-        grid_sender: mpsc::Sender<(usize, WordGrid)>,
+        grid_sender: mpsc::Sender<(usize, GridPair)>,
         grid_x: i32,
         grid_y: i32,
     ) -> Editor {
@@ -585,38 +619,7 @@ impl Editor {
         self.grid_id = self.grid_id.wrapping_add(1);
         self.solutions.clear();
 
-        let mut grid_string = String::new();
-
-        for y in 0..WORD_LENGTH {
-            for x in 0..WORD_LENGTH {
-                if is_gap_space(x as i32, y as i32) {
-                    grid_string.push(' ');
-                } else {
-                    let pos = x + y * WORD_LENGTH;
-                    let square = &self.grid_pair.puzzle.squares[pos];
-                    let letter =
-                        self.grid_pair.solution.letters[square.position];
-
-                    match square.state {
-                        PuzzleSquareState::Correct => {
-                            grid_string.extend(letter.to_uppercase());
-                        },
-                        PuzzleSquareState::Wrong
-                            | PuzzleSquareState::WrongPosition =>
-                        {
-                            grid_string.extend(letter.to_lowercase());
-                        },
-                    }
-                }
-            }
-
-            grid_string.push('\n');
-        }
-
-        if let Ok(grid) = grid_string.parse::<grid::Grid>() {
-            let word_grid = WordGrid::new(&grid);
-            let _ = self.grid_sender.send((self.grid_id, word_grid));
-        }
+        let _ = self.grid_sender.send((self.grid_id, self.grid_pair.clone()));
     }
 }
 
@@ -715,14 +718,22 @@ impl SolverThread {
         dictionary: Arc<Dictionary>,
         wakeup_fd: c_int,
     ) -> SolverThread {
-        let (grid_sender, grid_receiver) = mpsc::channel();
+        let (grid_sender, grid_receiver) = mpsc::channel::<(usize, GridPair)>();
         let (event_sender, event_receiver) = mpsc::channel();
 
         let join_handle = thread::spawn(move || {
             let wakeup_bytes = [b'!'];
 
-            for (grid_id, grid) in grid_receiver.iter() {
-                let mut solver = GridSolver::new(grid, &dictionary);
+            for (grid_id, grid_pair) in grid_receiver.iter() {
+                let Ok(grid) = grid_pair.to_grid()
+                else {
+                    continue;
+                };
+
+                let mut solver = GridSolver::new(
+                    WordGrid::new(&grid),
+                    &dictionary,
+                );
 
                 while let Some(solution) = solver.next() {
                     let event = SolutionEvent::new(
