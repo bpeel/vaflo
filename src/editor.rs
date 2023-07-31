@@ -808,6 +808,7 @@ impl Editor {
             self.current_puzzle = puzzle_num;
             self.update_words();
             self.send_grid();
+            self.redraw();
         }
     }
 
