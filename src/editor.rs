@@ -16,10 +16,19 @@
 
 mod grid;
 mod dictionary;
+mod word_grid;
+mod word_solver;
+mod grid_solver;
+mod permute;
 
 use std::process::ExitCode;
 use grid::{WORD_LENGTH, N_WORDS_ON_AXIS};
 use dictionary::Dictionary;
+use std::ffi::c_int;
+use std::sync::{Arc, mpsc};
+use std::thread;
+use word_grid::WordGrid;
+use grid_solver::GridSolver;
 
 struct SolutionGrid {
     // The solution contains the actual letters. The grid is stored as
@@ -69,7 +78,8 @@ struct Word {
 }
 
 struct Editor {
-    dictionary: Dictionary,
+    dictionary: Arc<Dictionary>,
+    grid_sender: mpsc::Sender<(usize, WordGrid)>,
     should_quit: bool,
     grid_x: i32,
     grid_y: i32,
@@ -80,6 +90,23 @@ struct Editor {
     current_grid: GridChoice,
     words: [Word; N_WORDS_ON_AXIS * 2],
     selected_position: Option<usize>,
+    grid_id: usize,
+    solutions: Vec<WordGrid>,
+}
+
+enum SolutionEventKind {
+    Grid(WordGrid),
+}
+
+struct SolutionEvent {
+    id: usize,
+    kind: SolutionEventKind,
+}
+
+struct SolverThread {
+    join_handle: thread::JoinHandle<()>,
+    grid_sender: mpsc::Sender<(usize, WordGrid)>,
+    event_receiver: mpsc::Receiver<SolutionEvent>,
 }
 
 fn is_gap_space(x: i32, y: i32) -> bool {
@@ -273,9 +300,15 @@ impl PuzzleSquareState {
 }
 
 impl Editor {
-    fn new(dictionary: Dictionary, grid_x: i32, grid_y: i32) -> Editor {
+    fn new(
+        dictionary: Arc<Dictionary>,
+        grid_sender: mpsc::Sender<(usize, WordGrid)>,
+        grid_x: i32,
+        grid_y: i32,
+    ) -> Editor {
         let mut editor = Editor {
             dictionary,
+            grid_sender,
             should_quit: false,
             grid_x,
             grid_y,
@@ -286,6 +319,8 @@ impl Editor {
             current_grid: GridChoice::Solution,
             words: Default::default(),
             selected_position: None,
+            grid_id: 0,
+            solutions: Vec::new(),
         };
 
         editor.update_words();
@@ -325,6 +360,31 @@ impl Editor {
                     "❌"
                 }
             );
+        }
+
+        if !self.solutions.is_empty() {
+            let mut y = self.grid_y + WORD_LENGTH as i32 + 3;
+
+            ncurses::mvaddstr(y, self.grid_x, "Solutions:");
+            y += 2;
+
+            let max_y = ncurses::getmaxy(ncurses::stdscr());
+
+            for solution in self.solutions.iter() {
+                if y + WORD_LENGTH as i32 > max_y {
+                    break;
+                }
+
+                for line in solution.to_string().lines() {
+                    if line.is_empty() {
+                        break;
+                    }
+                    ncurses::mvaddstr(y, self.grid_x, line);
+                    y += 1;
+                }
+
+                y += 1;
+            }
         }
 
         self.position_cursor();
@@ -403,6 +463,7 @@ impl Editor {
         self.grid_pair.solution.letters[position] = ch;
         self.update_words();
         self.grid_pair.update_square_states();
+        self.send_grid();
 
         match self.edit_direction {
             EditDirection::Down => {
@@ -456,6 +517,7 @@ impl Editor {
                 self.grid_pair.puzzle.squares.swap(pos, cursor_pos);
                 self.selected_position = None;
                 self.grid_pair.update_square_states();
+                self.send_grid();
                 self.redraw();
             }
         }
@@ -505,9 +567,60 @@ impl Editor {
             word.valid = self.dictionary.contains(word.text.chars());
         }
     }
+
+    fn handle_solution_event(&mut self, event: SolutionEvent) {
+        if event.id != self.grid_id {
+            return;
+        }
+
+        match event.kind {
+            SolutionEventKind::Grid(grid) => {
+                self.solutions.push(grid);
+                self.redraw();
+            },
+        }
+    }
+
+    fn send_grid(&mut self) {
+        self.grid_id = self.grid_id.wrapping_add(1);
+        self.solutions.clear();
+
+        let mut grid_string = String::new();
+
+        for y in 0..WORD_LENGTH {
+            for x in 0..WORD_LENGTH {
+                if is_gap_space(x as i32, y as i32) {
+                    grid_string.push(' ');
+                } else {
+                    let pos = x + y * WORD_LENGTH;
+                    let square = &self.grid_pair.puzzle.squares[pos];
+                    let letter =
+                        self.grid_pair.solution.letters[square.position];
+
+                    match square.state {
+                        PuzzleSquareState::Correct => {
+                            grid_string.extend(letter.to_uppercase());
+                        },
+                        PuzzleSquareState::Wrong
+                            | PuzzleSquareState::WrongPosition =>
+                        {
+                            grid_string.extend(letter.to_lowercase());
+                        },
+                    }
+                }
+            }
+
+            grid_string.push('\n');
+        }
+
+        if let Ok(grid) = grid_string.parse::<grid::Grid>() {
+            let word_grid = WordGrid::new(&grid);
+            let _ = self.grid_sender.send((self.grid_id, word_grid));
+        }
+    }
 }
 
-fn load_dictionary() -> Result<Dictionary, ()> {
+fn load_dictionary() -> Result<Arc<Dictionary>, ()> {
     let data = match std::env::args_os().nth(1) {
         Some(filename) => {
             match std::fs::read(&filename) {
@@ -525,21 +638,32 @@ fn load_dictionary() -> Result<Dictionary, ()> {
         None => Vec::new(),
     };
 
-    Ok(Dictionary::new(data.into_boxed_slice()))
+    Ok(Arc::new(Dictionary::new(data.into_boxed_slice())))
 }
 
-fn main_loop(editor: &mut Editor) {
+fn main_loop(
+    editor: &mut Editor,
+    solver_thread: &SolverThread,
+    wakeup_fd: c_int,
+) {
     while !editor.should_quit {
-        let mut pollfd = libc::pollfd {
-            fd: libc::STDIN_FILENO,
-            events: libc::POLLIN,
-            revents: 0,
-        };
+        let mut pollfds = [
+            libc::pollfd {
+                fd: libc::STDIN_FILENO,
+                events: libc::POLLIN,
+                revents: 0,
+            },
+            libc::pollfd {
+                fd: wakeup_fd,
+                events: libc::POLLIN,
+                revents: 0,
+            },
+        ];
 
         let poll_result = unsafe {
             libc::poll(
-                &mut pollfd as *mut libc::pollfd,
-                1, // nfds
+                &mut pollfds as *mut libc::pollfd,
+                pollfds.len() as libc::nfds_t,
                 -1, // timeout
             )
         };
@@ -547,11 +671,103 @@ fn main_loop(editor: &mut Editor) {
         if poll_result < 0 {
             eprintln!("poll failed");
             break;
-        } else if poll_result > 0 {
+        }
+
+        if (pollfds[0].revents | pollfds[1].revents)
+            & (libc::POLLHUP | libc::POLLERR)
+            != 0
+        {
+            break;
+        }
+
+        if pollfds[0].revents & libc::POLLIN != 0 {
             if let Some(key) = ncurses::get_wch() {
                 editor.handle_key(key);
             }
         }
+
+        if pollfds[1].revents & libc::POLLIN != 0 {
+            let mut bytes = [0u8];
+
+            let read_ret = unsafe {
+                libc::read(wakeup_fd, bytes.as_mut_ptr().cast(), 1)
+            };
+
+            if read_ret <= 0 {
+                break;
+            }
+        }
+
+        for event in solver_thread.event_receiver.try_iter() {
+            editor.handle_solution_event(event);
+        }
+    }
+}
+
+impl SolutionEvent {
+    fn new(id: usize, kind: SolutionEventKind) -> SolutionEvent {
+        SolutionEvent { id, kind }
+    }
+}
+
+impl SolverThread {
+    fn new(
+        dictionary: Arc<Dictionary>,
+        wakeup_fd: c_int,
+    ) -> SolverThread {
+        let (grid_sender, grid_receiver) = mpsc::channel();
+        let (event_sender, event_receiver) = mpsc::channel();
+
+        let join_handle = thread::spawn(move || {
+            let wakeup_bytes = [b'!'];
+
+            for (grid_id, grid) in grid_receiver.iter() {
+                let mut solver = GridSolver::new(grid, &dictionary);
+
+                while let Some(solution) = solver.next() {
+                    let event = SolutionEvent::new(
+                        grid_id,
+                        SolutionEventKind::Grid(solution),
+                    );
+                    if event_sender.send(event).is_err() {
+                        break;
+                    }
+                    unsafe {
+                        libc::write(wakeup_fd, wakeup_bytes.as_ptr().cast(), 1);
+                    }
+                }
+            }
+        });
+
+        SolverThread {
+            join_handle,
+            grid_sender,
+            event_receiver,
+        }
+    }
+
+    fn join(self) {
+        let SolverThread { join_handle, grid_sender, event_receiver } = self;
+
+        // Drop the mpcs so that the thread will quit
+        std::mem::drop(grid_sender);
+        std::mem::drop(event_receiver);
+
+        let _ = join_handle.join();
+    }
+}
+
+fn pipe() -> Result<(c_int, c_int), std::io::Error> {
+    let mut fds = [0, 0];
+
+    let pipe_result = unsafe {
+        libc::pipe(fds.as_mut_ptr())
+    };
+
+    if pipe_result < 0 {
+        Err(std::io::Error::last_os_error())
+    } else {
+        Ok((fds[0], fds[1]))
     }
 }
 
@@ -561,6 +777,14 @@ fn main() -> ExitCode {
     let Ok(dictionary) = load_dictionary()
     else {
         return ExitCode::FAILURE;
+    };
+
+    let (wakeup_read, wakeup_write) = match pipe() {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("pipe failed: {}", e);
+            return ExitCode::FAILURE;
+        },
     };
 
     ncurses::initscr();
@@ -586,11 +810,30 @@ fn main() -> ExitCode {
         ncurses::COLOR_BLACK,
     );
 
-    let mut editor = Editor::new(dictionary, 0, 0);
+    let solver_thread = SolverThread::new(
+        Arc::clone(&dictionary),
+        wakeup_write
+    );
+
+    let mut editor = Editor::new(
+        dictionary,
+        solver_thread.grid_sender.clone(),
+        0,
+        0,
+    );
 
     editor.redraw();
 
-    main_loop(&mut editor);
+    main_loop(&mut editor, &solver_thread, wakeup_read);
+
+    std::mem::drop(editor);
+
+    solver_thread.join();
+
+    unsafe {
+        libc::close(wakeup_read);
+        libc::close(wakeup_write);
+    }
 
     ncurses::endwin();
 
