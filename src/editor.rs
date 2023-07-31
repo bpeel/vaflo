@@ -328,6 +328,8 @@ impl Editor {
         }
 
         self.position_cursor();
+
+        ncurses::refresh();
     }
 
     fn position_cursor(&self) {
@@ -359,6 +361,7 @@ impl Editor {
             self.cursor_x = x;
             self.cursor_y = y;
             self.position_cursor();
+            ncurses::refresh();
         }
     }
 
@@ -375,6 +378,7 @@ impl Editor {
             GridChoice::Puzzle => GridChoice::Solution,
         };
         self.position_cursor();
+        ncurses::refresh();
     }
 
     fn toggle_edit_direction(&mut self) {
@@ -524,6 +528,33 @@ fn load_dictionary() -> Result<Dictionary, ()> {
     Ok(Dictionary::new(data.into_boxed_slice()))
 }
 
+fn main_loop(editor: &mut Editor) {
+    while !editor.should_quit {
+        let mut pollfd = libc::pollfd {
+            fd: libc::STDIN_FILENO,
+            events: libc::POLLIN,
+            revents: 0,
+        };
+
+        let poll_result = unsafe {
+            libc::poll(
+                &mut pollfd as *mut libc::pollfd,
+                1, // nfds
+                -1, // timeout
+            )
+        };
+
+        if poll_result < 0 {
+            eprintln!("poll failed");
+            break;
+        } else if poll_result > 0 {
+            if let Some(key) = ncurses::get_wch() {
+                editor.handle_key(key);
+            }
+        }
+    }
+}
+
 fn main() -> ExitCode {
     gettextrs::setlocale(gettextrs::LocaleCategory::LcAll, "");
 
@@ -537,6 +568,7 @@ fn main() -> ExitCode {
     ncurses::noecho();
     ncurses::keypad(ncurses::stdscr(), true);
     ncurses::start_color();
+    ncurses::nodelay(ncurses::stdscr(), true);
 
     ncurses::init_pair(
         PuzzleSquareState::Correct.color(),
@@ -558,11 +590,7 @@ fn main() -> ExitCode {
 
     editor.redraw();
 
-    while !editor.should_quit {
-        if let Some(key) = ncurses::get_wch() {
-            editor.handle_key(key);
-        }
-    }
+    main_loop(&mut editor);
 
     ncurses::endwin();
 

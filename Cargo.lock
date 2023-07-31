@@ -163,6 +163,7 @@ name = "solve-waffle"
 version = "0.1.0"
 dependencies = [
  "gettext-rs",
+ "libc",
  "ncurses",
 ]
 
