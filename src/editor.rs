@@ -88,7 +88,8 @@ struct Editor {
     should_quit: bool,
     grid_x: i32,
     grid_y: i32,
-    grid_pair: GridPair,
+    current_puzzle: usize,
+    puzzles: Vec<GridPair>,
     cursor_x: i32,
     cursor_y: i32,
     edit_direction: EditDirection,
@@ -365,7 +366,8 @@ impl Editor {
             should_quit: false,
             grid_x,
             grid_y,
-            grid_pair: GridPair::new(),
+            current_puzzle: 0,
+            puzzles: vec![GridPair::new()],
             cursor_x: 0,
             cursor_y: 0,
             edit_direction: EditDirection::Right,
@@ -384,7 +386,11 @@ impl Editor {
 
     fn redraw(&self) {
         ncurses::clear();
-        self.grid_pair.draw(self.grid_x, self.grid_y, self.selected_position);
+        self.puzzles[self.current_puzzle].draw(
+            self.grid_x,
+            self.grid_y,
+            self.selected_position
+        );
 
         let direction_ch = match self.edit_direction {
             EditDirection::Right => '>',
@@ -397,6 +403,12 @@ impl Editor {
             + 5;
 
         ncurses::mvaddch(self.grid_y, right_side, direction_ch as u32);
+
+        ncurses::addstr(&format!(
+            " {}/{}",
+            self.current_puzzle + 1,
+            self.puzzles.len(),
+        ));
 
         ncurses::mvaddstr(self.grid_y + 2, right_side, "Words:");
 
@@ -516,16 +528,18 @@ impl Editor {
         let position = self.cursor_x as usize
             + self.cursor_y as usize * WORD_LENGTH;
 
+        let grid_pair = &mut self.puzzles[self.current_puzzle];
+
         let position = match self.current_grid {
             GridChoice::Solution => position,
             GridChoice::Puzzle => {
-                self.grid_pair.puzzle.squares[position].position
+                grid_pair.puzzle.squares[position].position
             },
         };
 
-        self.grid_pair.solution.letters[position] = ch;
+        grid_pair.solution.letters[position] = ch;
+        grid_pair.update_square_states();
         self.update_words();
-        self.grid_pair.update_square_states();
         self.send_grid();
 
         match self.edit_direction {
@@ -557,6 +571,8 @@ impl Editor {
             ncurses::KEY_LEFT => self.move_cursor(-1, 0),
             ncurses::KEY_RIGHT => self.move_cursor(1, 0),
             ncurses::KEY_BACKSPACE => self.backspace(),
+            ncurses::KEY_NPAGE => self.move_between_puzzles(1),
+            ncurses::KEY_PPAGE => self.move_between_puzzles(-1),
             _ => (),
         }
     }
@@ -577,9 +593,10 @@ impl Editor {
         if matches!(self.current_grid, GridChoice::Puzzle) {
             if let Some(pos) = self.selected_position {
                 let cursor_pos = self.cursor_pos();
-                self.grid_pair.puzzle.squares.swap(pos, cursor_pos);
+                let grid_pair = &mut self.puzzles[self.current_puzzle];
+                grid_pair.puzzle.squares.swap(pos, cursor_pos);
+                grid_pair.update_square_states();
                 self.selected_position = None;
-                self.grid_pair.update_square_states();
                 self.send_grid();
                 self.redraw();
             }
@@ -594,6 +611,7 @@ impl Editor {
                 ' ' => self.handle_mark(),
                 '\u{0003}' => self.should_quit = true, // Ctrl+C
                 '\u{0013}' => self.handle_swap(), // Ctrl+S
+                '\u{000e}' => self.new_puzzle(), // Ctrl+N
                 ch if ch.is_alphabetic() => {
                     for ch in ch.to_uppercase() {
                         self.add_character(ch);
@@ -613,16 +631,18 @@ impl Editor {
 
     fn update_words(&mut self) {
         for word in 0..N_WORDS_ON_AXIS {
+            let grid_pair = &self.puzzles[self.current_puzzle];
+
             let horizontal = &mut self.words[word];
             horizontal.text.clear();
             horizontal.text.extend((0..WORD_LENGTH).map(|pos| {
-                self.grid_pair.solution.letters[pos + word * WORD_LENGTH * 2]
+                grid_pair.solution.letters[pos + word * WORD_LENGTH * 2]
             }));
 
             let vertical = &mut self.words[word + N_WORDS_ON_AXIS];
             vertical.text.clear();
             vertical.text.extend((0..WORD_LENGTH).map(|pos| {
-                self.grid_pair.solution.letters[pos * WORD_LENGTH + word * 2]
+                grid_pair.solution.letters[pos * WORD_LENGTH + word * 2]
             }));
         }
 
@@ -653,7 +673,30 @@ impl Editor {
         self.solutions.clear();
         self.shortest_swap_solution = None;
 
-        let _ = self.grid_sender.send((self.grid_id, self.grid_pair.clone()));
+        let grid_pair = self.puzzles[self.current_puzzle].clone();
+
+        let _ = self.grid_sender.send((self.grid_id, grid_pair));
+    }
+
+    fn set_current_puzzle(&mut self, puzzle_num: usize) {
+        if puzzle_num != self.current_puzzle {
+            assert!(puzzle_num < self.puzzles.len());
+            self.current_puzzle = puzzle_num;
+            self.puzzles[puzzle_num].update_square_states();
+            self.update_words();
+            self.send_grid();
+        }
+    }
+
+    fn move_between_puzzles(&mut self, offset: isize) {
+        let next_puzzle = self.current_puzzle.saturating_add_signed(offset)
+            .min(self.puzzles.len() - 1);
+        self.set_current_puzzle(next_puzzle);
+    }
+
+    fn new_puzzle(&mut self) {
+        self.puzzles.push(GridPair::new());
+        self.set_current_puzzle(self.puzzles.len() - 1);
     }
 }
 
