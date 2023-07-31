@@ -380,6 +380,7 @@ impl Editor {
         };
 
         editor.update_words();
+        editor.send_grid();
 
         editor
     }
