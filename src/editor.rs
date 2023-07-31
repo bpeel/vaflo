@@ -985,6 +985,26 @@ impl SolutionEvent {
     }
 }
 
+struct SkipReceiverIter<T> {
+    receiver: mpsc::Receiver<T>,
+}
+
+impl<T> SkipReceiverIter<T> {
+    fn new(receiver: mpsc::Receiver<T>) -> Self {
+        SkipReceiverIter { receiver }
+    }
+}
+
+impl<T> Iterator for SkipReceiverIter<T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<T> {
+        self.receiver.try_iter().last().or_else(|| {
+            self.receiver.recv().ok()
+        })
+    }
+}
+
 impl SolverThread {
     fn new(
         dictionary: Arc<Dictionary>,
@@ -996,7 +1016,7 @@ impl SolverThread {
         let join_handle = thread::spawn(move || {
             let wakeup_bytes = [b'!'];
 
-            for (grid_id, grid_pair) in grid_receiver.iter() {
+            for (grid_id, grid_pair) in SkipReceiverIter::new(grid_receiver) {
                 if let Some(n_swaps) = grid_pair.minimum_swaps() {
                     let event = SolutionEvent::new(
                         grid_id,
