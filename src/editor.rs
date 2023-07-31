@@ -199,7 +199,7 @@ impl PuzzleGrid {
                 } else {
                     let square = self.squares[y * WORD_LENGTH + x];
                     let is_selected = selected_position
-                        .map(|p| p == square.position)
+                        .map(|p| p == y * WORD_LENGTH + x)
                         .unwrap_or(false);
 
                     if is_selected {
