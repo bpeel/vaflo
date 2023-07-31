@@ -31,8 +31,10 @@ use std::sync::{Arc, mpsc};
 use std::thread;
 use word_grid::WordGrid;
 use grid_solver::GridSolver;
+use std::fmt;
+use std::io::{BufRead, Write};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct SolutionGrid {
     // The solution contains the actual letters. The grid is stored as
     // an array including positions for the gaps to make it easier to
@@ -40,30 +42,39 @@ struct SolutionGrid {
     letters: [char; WORD_LENGTH * WORD_LENGTH]
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 enum PuzzleSquareState {
     Correct,
     WrongPosition,
     Wrong,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 struct PuzzleSquare {
     position: usize,
     state: PuzzleSquareState,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct PuzzleGrid {
     // The puzzle is stored is indices into the solution grid so that
     // changing a letter will change it in both grids
     squares: [PuzzleSquare; WORD_LENGTH * WORD_LENGTH]
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct GridPair {
     solution: SolutionGrid,
     puzzle: PuzzleGrid,
+}
+
+#[derive(Debug)]
+enum GridPairParseError {
+    NonUppercaseLetter,
+    TooShort,
+    TooLong,
+    DuplicateIndex,
+    InvalidIndex,
 }
 
 enum EditDirection {
@@ -119,6 +130,13 @@ struct SolverThread {
 
 fn is_gap_space(x: i32, y: i32) -> bool {
     x & 1 == 1 && y & 1 == 1
+}
+
+fn is_gap_position(position: usize) -> bool {
+    is_gap_space(
+        (position % WORD_LENGTH) as i32,
+        (position / WORD_LENGTH) as i32,
+    )
 }
 
 fn addch_utf8(ch: char) {
@@ -347,6 +365,108 @@ impl GridPair {
     }
 }
 
+impl fmt::Display for GridPair {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for (i, letter) in self.solution.letters.iter().enumerate() {
+            if !is_gap_position(i) {
+                write!(f, "{}", letter)?;
+            }
+        }
+
+        for (i, square) in self.puzzle.squares.iter().enumerate() {
+            if !is_gap_position(i) {
+                write!(
+                    f,
+                    "{}",
+                    char::from_u32(
+                        b'a' as u32
+                            + square.position as u32
+                    ).unwrap(),
+                )?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl std::str::FromStr for GridPair {
+    type Err = GridPairParseError;
+
+    fn from_str(s: &str) -> Result<GridPair, GridPairParseError> {
+        let mut grid_pair = GridPair::new();
+        let mut chars = s.chars();
+
+        for (i, letter) in grid_pair.solution.letters.iter_mut().enumerate() {
+            if is_gap_position(i) {
+                continue;
+            }
+
+            match chars.next() {
+                Some(ch) => {
+                    if !ch.is_uppercase() {
+                        return Err(GridPairParseError::NonUppercaseLetter);
+                    }
+                    *letter = ch;
+                },
+                None => return Err(GridPairParseError::TooShort),
+            }
+        }
+
+        let mut used_positions = 0;
+
+        for (i, square) in grid_pair.puzzle.squares.iter_mut().enumerate() {
+            if is_gap_position(i) {
+                continue;
+            }
+
+            match chars.next() {
+                Some(ch) => {
+                    let Some(position) = (ch as usize).checked_sub('a' as usize)
+                        .filter(|pos| {
+                            *pos < WORD_LENGTH * WORD_LENGTH
+                                && !is_gap_position(*pos)
+                        })
+                    else {
+                        return Err(GridPairParseError::InvalidIndex);
+                    };
+
+                    if used_positions & (1 << position) != 0 {
+                        return Err(GridPairParseError::DuplicateIndex);
+                    }
+
+                    square.position = position;
+
+                    used_positions |= 1 << position;
+                },
+                None => return Err(GridPairParseError::TooShort),
+            }
+        }
+
+        if chars.next().is_some() {
+            return Err(GridPairParseError::TooLong);
+        }
+
+        grid_pair.update_square_states();
+
+        Ok(grid_pair)
+    }
+}
+
+impl fmt::Display for GridPairParseError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            GridPairParseError::NonUppercaseLetter => {
+                write!(f, "non-uppercase letter")
+            },
+            GridPairParseError::TooShort => write!(f, "too short"),
+            GridPairParseError::TooLong => write!(f, "too long"),
+            GridPairParseError::DuplicateIndex => write!(f, "duplicate index"),
+            GridPairParseError::InvalidIndex => write!(f, "invalid index"),
+        }
+    }
+}
+
 impl PuzzleSquareState {
     fn color(&self) -> i16 {
         *self as i16 + 1
@@ -355,11 +475,14 @@ impl PuzzleSquareState {
 
 impl Editor {
     fn new(
+        puzzles: Vec<GridPair>,
         dictionary: Arc<Dictionary>,
         grid_sender: mpsc::Sender<(usize, GridPair)>,
         grid_x: i32,
         grid_y: i32,
     ) -> Editor {
+        assert!(puzzles.len() > 0);
+
         let mut editor = Editor {
             dictionary,
             grid_sender,
@@ -367,7 +490,7 @@ impl Editor {
             grid_x,
             grid_y,
             current_puzzle: 0,
-            puzzles: vec![GridPair::new()],
+            puzzles,
             cursor_x: 0,
             cursor_y: 0,
             edit_direction: EditDirection::Right,
@@ -683,7 +806,6 @@ impl Editor {
         if puzzle_num != self.current_puzzle {
             assert!(puzzle_num < self.puzzles.len());
             self.current_puzzle = puzzle_num;
-            self.puzzles[puzzle_num].update_square_states();
             self.update_words();
             self.send_grid();
         }
@@ -720,6 +842,77 @@ fn load_dictionary() -> Result<Arc<Dictionary>, ()> {
     };
 
     Ok(Arc::new(Dictionary::new(data.into_boxed_slice())))
+}
+
+fn load_puzzles() -> Result<Vec<GridPair>, ()> {
+    let filename = "puzzles.txt";
+    let mut puzzles = Vec::new();
+
+    let f = match std::fs::File::open(filename) {
+        Ok(f) => f,
+        Err(e) => {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                return Ok(vec![GridPair::new()]);
+            } else {
+                eprintln!("{}: {}", filename, e);
+                return Err(());
+            }
+        },
+    };
+
+    for (line_num, line) in std::io::BufReader::new(f).lines().enumerate() {
+        let line = match line {
+            Ok(line) => line,
+            Err(e) => {
+                eprintln!("{}: {}", filename, e);
+                return Err(());
+            },
+        };
+
+        let line = line.trim();
+
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+
+        match line.parse::<GridPair>() {
+            Ok(grid) => puzzles.push(grid),
+            Err(e) => {
+                eprintln!("{}:{}: {}", filename, line_num + 1, e);
+                return Err(());
+            },
+        }
+    }
+
+    if puzzles.is_empty() {
+        eprintln!("{}: empty file", filename);
+        return Err(());
+    }
+
+    Ok(puzzles)
+}
+
+fn save_puzzles(puzzles: &[GridPair]) {
+    let f = match std::fs::File::create("puzzles.txt.tmp") {
+        Ok(f) => f,
+        Err(_) => return,
+    };
+
+    let mut writer = std::io::BufWriter::new(f);
+
+    for puzzle in puzzles.iter() {
+        if write!(writer, "{}\n", puzzle).is_err() {
+            return;
+        }
+    }
+
+    if writer.flush().is_err() {
+        return;
+    }
+
+    std::mem::drop(writer);
+
+    let _ = std::fs::rename("puzzles.txt.tmp", "puzzles.txt");
 }
 
 fn main_loop(
@@ -881,6 +1074,11 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     };
 
+    let Ok(puzzles) = load_puzzles()
+    else {
+        return ExitCode::FAILURE;
+    };
+
     let (wakeup_read, wakeup_write) = match pipe() {
         Ok(p) => p,
         Err(e) => {
@@ -918,6 +1116,7 @@ fn main() -> ExitCode {
     );
 
     let mut editor = Editor::new(
+        puzzles,
         dictionary,
         solver_thread.grid_sender.clone(),
         0,
@@ -927,6 +1126,8 @@ fn main() -> ExitCode {
     editor.redraw();
 
     main_loop(&mut editor, &solver_thread, wakeup_read);
+
+    save_puzzles(&editor.puzzles);
 
     std::mem::drop(editor);
 
@@ -940,4 +1141,100 @@ fn main() -> ExitCode {
     ncurses::endwin();
 
     ExitCode::SUCCESS
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn grid_pair_parse() {
+        assert!(matches!(
+            "aaaaaaaaaaaaaaaaaaaaa\
+             abcdefhjklmnoprtuvwxy".parse::<GridPair>(),
+            Err(GridPairParseError::NonUppercaseLetter),
+        ));
+        assert!(matches!(
+            "AAAAAAAAAAAAAAAAAAAAA\
+             abcdefhjklmnoprtuvwx".parse::<GridPair>(),
+            Err(GridPairParseError::TooShort),
+        ));
+        assert!(matches!(
+            "AAAAAAAAAAAAAAAAAAAA".parse::<GridPair>(),
+            Err(GridPairParseError::TooShort),
+        ));
+        assert!(matches!(
+            "AAAAAAAAAAAAAAAAAAAAA\
+             abcdefhjklmnoprtuvwxyz".parse::<GridPair>(),
+            Err(GridPairParseError::TooLong),
+        ));
+        // Index to a space
+        assert!(matches!(
+            "AAAAAAAAAAAAAAAAAAAAA\
+             abcdeghjklmnoprtuvwxy".parse::<GridPair>(),
+            Err(GridPairParseError::InvalidIndex),
+        ));
+        // Index too high
+        assert!(matches!(
+            "AAAAAAAAAAAAAAAAAAAAA\
+             abcdefhjklmnoprtuvwxz".parse::<GridPair>(),
+            Err(GridPairParseError::InvalidIndex),
+        ));
+        // Index too low
+        assert!(matches!(
+            "AAAAAAAAAAAAAAAAAAAAA\
+             abcdefhjklmnoprtuvwx@".parse::<GridPair>(),
+            Err(GridPairParseError::InvalidIndex),
+        ));
+        // Duplicate index
+        assert!(matches!(
+            "AAAAAAAAAAAAAAAAAAAAA\
+             aacdefhjklmnoprtuvwxy".parse::<GridPair>(),
+            Err(GridPairParseError::DuplicateIndex),
+        ));
+
+        let grid = "ABCDEFHJKLMNOPRTUVWXY\
+                    bacdefhjklmnoprtuvwxy".parse::<GridPair>().unwrap();
+
+        for pos in 0..WORD_LENGTH * WORD_LENGTH {
+            if !is_gap_position(pos) {
+                assert_eq!(
+                    grid.solution.letters[pos],
+                    char::from_u32(pos as u32 + 'A' as u32).unwrap(),
+                );
+            }
+        }
+
+        assert_eq!(grid.puzzle.squares[0].position, 1);
+        assert!(matches!(
+            grid.puzzle.squares[0].state,
+            PuzzleSquareState::WrongPosition,
+        ));
+        assert_eq!(grid.puzzle.squares[1].position, 0);
+        assert!(matches!(
+            grid.puzzle.squares[1].state,
+            PuzzleSquareState::WrongPosition,
+        ));
+
+        for pos in 2..WORD_LENGTH * WORD_LENGTH {
+            let square = &grid.puzzle.squares[pos];
+            assert_eq!(square.position, pos);
+            assert!(matches!(square.state, PuzzleSquareState::Correct));
+        }
+    }
+
+    #[test]
+    fn grid_pair_display() {
+        let tests = [
+            "ABCDEFHJKLMNOPRTUVWXY\
+             bacdefhjklmnoprtuvwxy",
+        ];
+
+        for test in tests {
+            assert_eq!(
+                test,
+                &test.parse::<GridPair>().unwrap().to_string(),
+            );
+        }
+    }
 }
