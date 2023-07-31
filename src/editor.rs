@@ -20,6 +20,8 @@ mod word_grid;
 mod word_solver;
 mod grid_solver;
 mod permute;
+mod pairs;
+mod swap_solver;
 
 use std::process::ExitCode;
 use grid::{WORD_LENGTH, N_WORDS_ON_AXIS};
@@ -95,10 +97,12 @@ struct Editor {
     selected_position: Option<usize>,
     grid_id: usize,
     solutions: Vec<WordGrid>,
+    shortest_swap_solution: Option<usize>,
 }
 
 enum SolutionEventKind {
     Grid(WordGrid),
+    SwapSolution(usize),
 }
 
 struct SolutionEvent {
@@ -325,6 +329,21 @@ impl GridPair {
 
         grid_string.parse::<grid::Grid>()
     }
+
+    fn minimum_swaps(&self) -> Option<usize> {
+        let solution = self.solution
+            .letters
+            .iter()
+            .map(|&letter| letter)
+            .collect::<Vec<char>>();
+        let puzzle = self.puzzle
+            .squares
+            .iter()
+            .map(|square| self.solution.letters[square.position])
+            .collect::<Vec<char>>();
+
+        swap_solver::solve(&puzzle, &solution).map(|solution| solution.len())
+    }
 }
 
 impl PuzzleSquareState {
@@ -355,6 +374,7 @@ impl Editor {
             selected_position: None,
             grid_id: 0,
             solutions: Vec::new(),
+            shortest_swap_solution: None,
         };
 
         editor.update_words();
@@ -396,9 +416,18 @@ impl Editor {
             );
         }
 
-        if !self.solutions.is_empty() {
-            let mut y = self.grid_y + WORD_LENGTH as i32 + 3;
+        let mut y = self.grid_y + WORD_LENGTH as i32 + 3;
 
+        if let Some(n_swaps) = self.shortest_swap_solution {
+            ncurses::mvaddstr(
+                y,
+                self.grid_x,
+                &format!("Minimum swaps: {}", n_swaps),
+            );
+            y += 2;
+        }
+
+        if !self.solutions.is_empty() {
             ncurses::mvaddstr(y, self.grid_x, "Solutions:");
             y += 2;
 
@@ -612,12 +641,17 @@ impl Editor {
                 self.solutions.push(grid);
                 self.redraw();
             },
+            SolutionEventKind::SwapSolution(n_swaps) => {
+                self.shortest_swap_solution = Some(n_swaps);
+                self.redraw();
+            },
         }
     }
 
     fn send_grid(&mut self) {
         self.grid_id = self.grid_id.wrapping_add(1);
         self.solutions.clear();
+        self.shortest_swap_solution = None;
 
         let _ = self.grid_sender.send((self.grid_id, self.grid_pair.clone()));
     }
@@ -725,6 +759,19 @@ impl SolverThread {
             let wakeup_bytes = [b'!'];
 
             for (grid_id, grid_pair) in grid_receiver.iter() {
+                if let Some(n_swaps) = grid_pair.minimum_swaps() {
+                    let event = SolutionEvent::new(
+                        grid_id,
+                        SolutionEventKind::SwapSolution(n_swaps),
+                    );
+                    if event_sender.send(event).is_err() {
+                        break;
+                    }
+                    unsafe {
+                        libc::write(wakeup_fd, wakeup_bytes.as_ptr().cast(), 1);
+                    }
+                }
+
                 let Ok(grid) = grid_pair.to_grid()
                 else {
                     continue;
