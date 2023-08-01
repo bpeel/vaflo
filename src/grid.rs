@@ -22,7 +22,8 @@ pub const N_WORDS_ON_AXIS: usize = (WORD_LENGTH + 1) / 2;
 // The number of letters not at an intersection per word
 const N_SPACING_LETTERS: usize = WORD_LENGTH - N_WORDS_ON_AXIS;
 // Total number of letters in the grid
-const N_LETTERS: usize = (WORD_LENGTH + N_SPACING_LETTERS) * N_WORDS_ON_AXIS;
+pub const N_LETTERS: usize =
+    (WORD_LENGTH + N_SPACING_LETTERS) * N_WORDS_ON_AXIS;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LetterState {
