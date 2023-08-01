@@ -559,7 +559,9 @@ impl Editor {
 
     fn redraw(&self) {
         ncurses::clear();
-        self.puzzles[self.current_puzzle].draw(
+        let grid_pair = &self.puzzles[self.current_puzzle];
+
+        grid_pair.draw(
             self.grid_x,
             self.grid_y,
             self.selected_position
@@ -623,11 +625,30 @@ impl Editor {
                     break;
                 }
 
+                let mut position = 0;
+
                 for line in solution.to_string().lines() {
                     if line.is_empty() {
                         break;
                     }
-                    ncurses::mvaddstr(y, self.grid_x, line);
+
+                    ncurses::mv(y, self.grid_x);
+
+                    for ch in line.chars() {
+                        let mut letter = [0u8; 4];
+                        let letter = ch.encode_utf8(&mut letter);
+
+                        if ch != grid_pair.solution.letters[position] {
+                            ncurses::attron(ncurses::A_BOLD());
+                            ncurses::addstr(letter);
+                            ncurses::attroff(ncurses::A_BOLD());
+                        } else {
+                            ncurses::addstr(letter);
+                        }
+
+                        position += 1;
+                    }
+
                     y += 1;
                 }
 
