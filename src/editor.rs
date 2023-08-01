@@ -99,7 +99,7 @@ struct Word {
 
 struct Editor {
     dictionary: Arc<Dictionary>,
-    grid_sender: mpsc::Sender<(usize, GridPair)>,
+    grid_senders: Vec<mpsc::Sender<(usize, GridPair)>>,
     should_quit: bool,
     grid_x: i32,
     grid_y: i32,
@@ -127,8 +127,10 @@ struct SolutionEvent {
 }
 
 struct SolverThread {
-    join_handle: thread::JoinHandle<()>,
-    grid_sender: mpsc::Sender<(usize, GridPair)>,
+    word_join_handle: thread::JoinHandle<()>,
+    word_grid_sender: mpsc::Sender<(usize, GridPair)>,
+    swap_join_handle: thread::JoinHandle<()>,
+    swap_grid_sender: mpsc::Sender<(usize, GridPair)>,
     event_receiver: mpsc::Receiver<SolutionEvent>,
 }
 
@@ -517,7 +519,7 @@ impl Editor {
     fn new(
         puzzles: Vec<GridPair>,
         dictionary: Arc<Dictionary>,
-        grid_sender: mpsc::Sender<(usize, GridPair)>,
+        grid_senders: Vec<mpsc::Sender<(usize, GridPair)>>,
         grid_x: i32,
         grid_y: i32,
     ) -> Editor {
@@ -525,7 +527,7 @@ impl Editor {
 
         let mut editor = Editor {
             dictionary,
-            grid_sender,
+            grid_senders,
             should_quit: false,
             grid_x,
             grid_y,
@@ -840,7 +842,9 @@ impl Editor {
 
         let grid_pair = self.puzzles[self.current_puzzle].clone();
 
-        let _ = self.grid_sender.send((self.grid_id, grid_pair));
+        for grid_sender in self.grid_senders.iter() {
+            let _ = grid_sender.send((self.grid_id, grid_pair.clone()));
+        }
     }
 
     fn set_current_puzzle(&mut self, puzzle_num: usize) {
@@ -1059,26 +1063,21 @@ impl SolverThread {
         dictionary: Arc<Dictionary>,
         wakeup_fd: c_int,
     ) -> SolverThread {
-        let (grid_sender, grid_receiver) = mpsc::channel::<(usize, GridPair)>();
+        let (word_grid_sender, word_grid_receiver) =
+            mpsc::channel::<(usize, GridPair)>();
+        let (swap_grid_sender, swap_grid_receiver) =
+            mpsc::channel::<(usize, GridPair)>();
         let (event_sender, event_receiver) = mpsc::channel();
 
-        let join_handle = thread::spawn(move || {
+        let word_event_sender = event_sender.clone();
+        let swap_event_sender = event_sender;
+
+        let word_join_handle = thread::spawn(move || {
             let wakeup_bytes = [b'!'];
 
-            for (grid_id, grid_pair) in SkipReceiverIter::new(grid_receiver) {
-                if let Some(n_swaps) = grid_pair.minimum_swaps() {
-                    let event = SolutionEvent::new(
-                        grid_id,
-                        SolutionEventKind::SwapSolution(n_swaps),
-                    );
-                    if event_sender.send(event).is_err() {
-                        break;
-                    }
-                    unsafe {
-                        libc::write(wakeup_fd, wakeup_bytes.as_ptr().cast(), 1);
-                    }
-                }
+            let skip_receiver = SkipReceiverIter::new(word_grid_receiver);
 
+            for (grid_id, grid_pair) in skip_receiver {
                 let Ok(grid) = grid_pair.to_grid()
                 else {
                     continue;
@@ -1094,7 +1093,28 @@ impl SolverThread {
                         grid_id,
                         SolutionEventKind::Grid(solution),
                     );
-                    if event_sender.send(event).is_err() {
+                    if word_event_sender.send(event).is_err() {
+                        break;
+                    }
+                    unsafe {
+                        libc::write(wakeup_fd, wakeup_bytes.as_ptr().cast(), 1);
+                    }
+                }
+            }
+        });
+
+        let swap_join_handle = thread::spawn(move || {
+            let wakeup_bytes = [b'!'];
+
+            let skip_receiver = SkipReceiverIter::new(swap_grid_receiver);
+
+            for (grid_id, grid_pair) in skip_receiver {
+                if let Some(n_swaps) = grid_pair.minimum_swaps() {
+                    let event = SolutionEvent::new(
+                        grid_id,
+                        SolutionEventKind::SwapSolution(n_swaps),
+                    );
+                    if swap_event_sender.send(event).is_err() {
                         break;
                     }
                     unsafe {
@@ -1105,20 +1125,30 @@ impl SolverThread {
         });
 
         SolverThread {
-            join_handle,
-            grid_sender,
+            word_join_handle,
+            word_grid_sender,
+            swap_join_handle,
+            swap_grid_sender,
             event_receiver,
         }
     }
 
     fn join(self) {
-        let SolverThread { join_handle, grid_sender, event_receiver } = self;
+        let SolverThread {
+            word_join_handle,
+            word_grid_sender,
+            swap_join_handle,
+            swap_grid_sender,
+            event_receiver,
+        } = self;
 
         // Drop the mpcs so that the thread will quit
-        std::mem::drop(grid_sender);
+        std::mem::drop(word_grid_sender);
+        std::mem::drop(swap_grid_sender);
         std::mem::drop(event_receiver);
 
-        let _ = join_handle.join();
+        let _ = word_join_handle.join();
+        let _ = swap_join_handle.join();
     }
 }
 
@@ -1188,7 +1218,10 @@ fn main() -> ExitCode {
     let mut editor = Editor::new(
         puzzles,
         dictionary,
-        solver_thread.grid_sender.clone(),
+        vec![
+            solver_thread.word_grid_sender.clone(),
+            solver_thread.swap_grid_sender.clone(),
+        ],
         0,
         0,
     );
