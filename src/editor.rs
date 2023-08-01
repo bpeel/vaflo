@@ -305,6 +305,13 @@ impl GridPair {
         }
 
         for position in positions.clone() {
+            if matches!(
+                self.puzzle.squares[position].state,
+                PuzzleSquareState::Correct,
+            ) {
+                continue;
+            }
+
             let letter = self.solution.letters[position];
             let mut best_pos = None;
 
