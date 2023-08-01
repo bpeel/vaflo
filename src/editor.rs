@@ -1086,6 +1086,38 @@ impl<T> Iterator for SkipReceiverIter<T> {
     }
 }
 
+struct EventSender {
+    sender: mpsc::Sender<SolutionEvent>,
+    wakeup_fd: c_int,
+}
+
+impl EventSender {
+    fn new(
+        sender: mpsc::Sender<SolutionEvent>,
+        wakeup_fd: c_int,
+    ) -> EventSender {
+        EventSender {
+            sender,
+            wakeup_fd,
+        }
+    }
+
+    fn send(
+        &self,
+        event: SolutionEvent,
+    ) -> Result<(), mpsc::SendError<SolutionEvent>> {
+        self.sender.send(event)?;
+
+        let wakeup_bytes = [b'!'];
+
+        unsafe {
+            libc::write(self.wakeup_fd, wakeup_bytes.as_ptr().cast(), 1);
+        }
+
+        Ok(())
+    }
+}
+
 impl SolverThread {
     fn new(
         dictionary: Arc<Dictionary>,
@@ -1097,12 +1129,13 @@ impl SolverThread {
             mpsc::channel::<(usize, GridPair)>();
         let (event_sender, event_receiver) = mpsc::channel();
 
-        let word_event_sender = event_sender.clone();
-        let swap_event_sender = event_sender;
+        let word_event_sender = EventSender::new(
+            event_sender.clone(),
+            wakeup_fd,
+        );
+        let swap_event_sender = EventSender::new(event_sender, wakeup_fd);
 
         let word_join_handle = thread::spawn(move || {
-            let wakeup_bytes = [b'!'];
-
             let skip_receiver = SkipReceiverIter::new(word_grid_receiver);
 
             for (grid_id, grid_pair) in skip_receiver {
@@ -1124,16 +1157,11 @@ impl SolverThread {
                     if word_event_sender.send(event).is_err() {
                         break;
                     }
-                    unsafe {
-                        libc::write(wakeup_fd, wakeup_bytes.as_ptr().cast(), 1);
-                    }
                 }
             }
         });
 
         let swap_join_handle = thread::spawn(move || {
-            let wakeup_bytes = [b'!'];
-
             let skip_receiver = SkipReceiverIter::new(swap_grid_receiver);
 
             for (grid_id, grid_pair) in skip_receiver {
@@ -1144,9 +1172,6 @@ impl SolverThread {
                     );
                     if swap_event_sender.send(event).is_err() {
                         break;
-                    }
-                    unsafe {
-                        libc::write(wakeup_fd, wakeup_bytes.as_ptr().cast(), 1);
                     }
                 }
             }
