@@ -38,7 +38,7 @@ where
         return Some(Vec::new());
     }
 
-    let mut best_solution = None;
+    let mut best_solution = Option::<Vec<(usize, usize)>>::None;
     let mut visited_states = HashMap::new();
     let mut state = start.to_owned();
     let mut stack = Vec::<StackEntry>::new();
@@ -58,9 +58,9 @@ where
                     continue;
                 }
 
-                state.swap(a, b);
-
                 let n_moves = stack.len() + 1;
+
+                state.swap(a, b);
 
                 // Have we already seen this state with fewer moves?
                 match visited_states.get_mut(&state) {
@@ -92,13 +92,23 @@ where
                     continue;
                 }
 
-                let next_pair_iter = pairs::Iter::new(start.len());
+                // Don’t push the next iterator if the number of moves
+                // would be the same or worse than the current best
+                // solution
+                let best_len = best_solution.as_ref().map(|s| s.len())
+                    .unwrap_or(usize::MAX);
+                if n_moves + 1 >= best_len {
+                    // Revert the swap
+                    state.swap(a, b);
+                } else {
+                    let next_pair_iter = pairs::Iter::new(start.len());
 
-                stack.push(StackEntry {
-                    pair_iter: mem::replace(&mut pair_iter, next_pair_iter),
-                    a,
-                    b,
-                });
+                    stack.push(StackEntry {
+                        pair_iter: mem::replace(&mut pair_iter, next_pair_iter),
+                        a,
+                        b,
+                    });
+                }
             },
             None => {
                 // Backtrack
