@@ -1340,4 +1340,21 @@ mod test {
             );
         }
     }
+
+    #[test]
+    fn duplicate_correct() {
+        let grid_pair = "KULPOEIKMANĜUIDPOMAĜI\
+                         jlmorpaknbchdftwuyexv"
+            .parse::<GridPair>().unwrap();
+
+        let row = &grid_pair.puzzle.squares[
+            WORD_LENGTH * (WORD_LENGTH - 1)..WORD_LENGTH * WORD_LENGTH
+        ];
+
+        assert!(matches!(row[0].state, PuzzleSquareState::Correct));
+        assert!(matches!(row[1].state, PuzzleSquareState::WrongPosition));
+        assert!(matches!(row[2].state, PuzzleSquareState::Wrong));
+        assert!(matches!(row[3].state, PuzzleSquareState::Correct));
+        assert!(matches!(row[4].state, PuzzleSquareState::WrongPosition));
+    }
 }
