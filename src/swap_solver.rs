@@ -25,6 +25,38 @@ struct StackEntry {
     b: usize,
 }
 
+fn initial_solution<T>(
+    start: &[T],
+    target: &[T]
+) -> Option<Vec<(usize, usize)>>
+where
+    T: Hash + Clone + Eq
+{
+    let mut state = start.to_owned();
+    let mut solution = Vec::new();
+
+    for i in 0..state.len() {
+        if state[i] == target[i] {
+            continue;
+        }
+
+        let j = 'find_swap: {
+            for j in i + 1..state.len() {
+                if state[j] == target[i] && state[j] != target[j] {
+                    break 'find_swap j;
+                }
+            }
+
+            return None;
+        };
+
+        solution.push((i, j));
+        state.swap(i, j);
+    }
+
+    Some(solution)
+}
+
 pub fn solve<T>(
     start: &[T],
     target: &[T]
@@ -38,7 +70,7 @@ where
         return Some(Vec::new());
     }
 
-    let mut best_solution = Option::<Vec<(usize, usize)>>::None;
+    let mut best_solution = initial_solution(start, target);
     let mut visited_states = HashMap::new();
     let mut state = start.to_owned();
     let mut stack = Vec::<StackEntry>::new();
