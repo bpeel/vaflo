@@ -23,3 +23,4 @@ path = "src/editor.rs"
 gettext-rs = "0.7.0"
 libc = "0.2.147"
 ncurses = { version = "5.101.0", features = ["wide"] }
+rand = "0.8.5"

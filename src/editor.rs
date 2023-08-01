@@ -24,7 +24,7 @@ mod pairs;
 mod swap_solver;
 
 use std::process::ExitCode;
-use grid::{WORD_LENGTH, N_WORDS_ON_AXIS};
+use grid::{WORD_LENGTH, N_WORDS_ON_AXIS, N_LETTERS};
 use dictionary::Dictionary;
 use std::ffi::c_int;
 use std::sync::{Arc, mpsc};
@@ -33,6 +33,10 @@ use word_grid::WordGrid;
 use grid_solver::GridSolver;
 use std::fmt;
 use std::io::{BufRead, Write};
+use rand::Rng;
+
+// Number of swaps to make when shuffling the puzzle
+const N_SHUFFLE_SWAPS: usize = 10;
 
 #[derive(Clone, Debug)]
 struct SolutionGrid {
@@ -174,13 +178,49 @@ impl PuzzleGrid {
             state: PuzzleSquareState::Correct,
         };
 
-        let mut squares = [default_square; WORD_LENGTH * WORD_LENGTH];
+        let mut grid = PuzzleGrid {
+            squares: [default_square; WORD_LENGTH * WORD_LENGTH],
+        };
 
-        for (i, square) in squares.iter_mut().enumerate() {
+        grid.reset();
+
+        grid
+    }
+
+    fn reset(&mut self) {
+        for (i, square) in self.squares.iter_mut().enumerate() {
             square.position = i;
         }
+    }
 
-        PuzzleGrid { squares }
+    fn shuffle(&mut self) {
+        self.reset();
+
+        let mut used_squares = 0;
+        let mut rng = rand::thread_rng();
+
+        // Make 10 random swaps out of squares that aren’t involved in
+        // previous swaps
+        for swap_num in 0..N_SHUFFLE_SWAPS {
+            let n_positions = N_LETTERS - swap_num * 2;
+            let a = rng.gen_range(0..n_positions - 1);
+            let b = rng.gen_range(a + 1..n_positions);
+
+            let mut positions = (0..WORD_LENGTH * WORD_LENGTH)
+                .filter(|&pos| {
+                    !is_gap_position(pos)
+                        && used_squares & (1 << pos) == 0
+                });
+
+            assert_eq!(n_positions, positions.clone().count());
+
+            let a_pos = positions.nth(a).unwrap();
+            let b_pos = positions.nth(b - a - 1).unwrap();
+
+            self.squares.swap(a_pos, b_pos);
+
+            used_squares |= (1 << a_pos) | (1 << b_pos)
+        }
     }
 
     fn draw(
@@ -734,6 +774,7 @@ impl Editor {
                 '.' => self.toggle_edit_direction(),
                 ' ' => self.handle_mark(),
                 '\u{0003}' => self.should_quit = true, // Ctrl+C
+                '\u{0012}' => self.shuffle_puzzle(), // Ctrl+R
                 '\u{0013}' => self.handle_swap(), // Ctrl+S
                 '\u{000e}' => self.new_puzzle(), // Ctrl+N
                 ch if ch.is_alphabetic() => {
@@ -821,6 +862,14 @@ impl Editor {
     fn new_puzzle(&mut self) {
         self.puzzles.push(GridPair::new());
         self.set_current_puzzle(self.puzzles.len() - 1);
+    }
+
+    fn shuffle_puzzle(&mut self) {
+        let grid_pair = &mut self.puzzles[self.current_puzzle];
+        grid_pair.puzzle.shuffle();
+        grid_pair.update_square_states();
+        self.send_grid();
+        self.redraw();
     }
 }
 
