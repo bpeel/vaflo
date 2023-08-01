@@ -113,11 +113,13 @@ struct Editor {
     selected_position: Option<usize>,
     grid_id: usize,
     solutions: Vec<WordGrid>,
+    had_all_solutions: bool,
     shortest_swap_solution: Option<usize>,
 }
 
 enum SolutionEventKind {
     Grid(WordGrid),
+    GridEnd,
     SwapSolution(usize),
 }
 
@@ -548,6 +550,7 @@ impl Editor {
             selected_position: None,
             grid_id: 0,
             solutions: Vec::new(),
+            had_all_solutions: false,
             shortest_swap_solution: None,
         };
 
@@ -615,7 +618,14 @@ impl Editor {
         }
 
         if !self.solutions.is_empty() {
-            ncurses::mvaddstr(y, self.grid_x, "Solutions:");
+            ncurses::mvaddstr(y, self.grid_x, "Solutions");
+
+            if !self.had_all_solutions {
+                ncurses::addstr("…");
+            }
+
+            ncurses::addch(':' as u32);
+
             y += 2;
 
             let max_y = ncurses::getmaxy(ncurses::stdscr());
@@ -856,6 +866,10 @@ impl Editor {
                 self.solutions.push(grid);
                 self.redraw();
             },
+            SolutionEventKind::GridEnd => {
+                self.had_all_solutions = true;
+                self.redraw();
+            },
             SolutionEventKind::SwapSolution(n_swaps) => {
                 self.shortest_swap_solution = Some(n_swaps);
                 self.redraw();
@@ -866,6 +880,7 @@ impl Editor {
     fn send_grid(&mut self) {
         self.grid_id = self.grid_id.wrapping_add(1);
         self.solutions.clear();
+        self.had_all_solutions = false;
         self.shortest_swap_solution = None;
 
         let grid_pair = self.puzzles[self.current_puzzle].clone();
@@ -1157,6 +1172,13 @@ impl SolverThread {
                     if word_event_sender.send(event).is_err() {
                         break;
                     }
+                }
+
+                if word_event_sender.send(SolutionEvent::new(
+                    grid_id,
+                    SolutionEventKind::GridEnd,
+                )).is_err() {
+                    break;
                 }
             }
         });
