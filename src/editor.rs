@@ -362,7 +362,7 @@ impl GridPair {
                 i * 2 * WORD_LENGTH..(i * 2 + 1) * WORD_LENGTH,
             );
             self.update_square_letters_for_word(
-                (i..i + WORD_LENGTH * WORD_LENGTH).step_by(WORD_LENGTH),
+                (i * 2..i * 2 + WORD_LENGTH * WORD_LENGTH).step_by(WORD_LENGTH),
             );
         }
     }
@@ -1363,5 +1363,20 @@ mod test {
         assert!(matches!(row[2].state, PuzzleSquareState::Wrong));
         assert!(matches!(row[3].state, PuzzleSquareState::Correct));
         assert!(matches!(row[4].state, PuzzleSquareState::WrongPosition));
+    }
+
+    #[test]
+    fn vertical_square_states() {
+        let grid_pair = "MORSAUUKROLASDOOURSOJ\
+                         ardxnhpfmvulwtybkeocj"
+            .parse::<GridPair>().unwrap();
+
+        let squares = &grid_pair.puzzle.squares;
+
+        assert!(matches!(squares[4].state, PuzzleSquareState::Correct));
+        assert!(matches!(squares[9].state, PuzzleSquareState::Wrong));
+        assert!(matches!(squares[14].state, PuzzleSquareState::Correct));
+        assert!(matches!(squares[19].state, PuzzleSquareState::Correct));
+        assert!(matches!(squares[24].state, PuzzleSquareState::WrongPosition));
     }
 }
