@@ -22,6 +22,7 @@ mod grid_solver;
 mod permute;
 mod pairs;
 mod swap_solver;
+mod grid;
 
 use std::process::ExitCode;
 use letter_grid::{LetterGrid, WORD_LENGTH, N_WORDS_ON_AXIS, N_LETTERS};
@@ -31,55 +32,12 @@ use std::sync::{Arc, mpsc};
 use std::thread;
 use word_grid::WordGrid;
 use grid_solver::GridSolver;
-use std::fmt;
 use std::io::{BufRead, Write};
 use rand::Rng;
+use grid::{Grid, SolutionGrid, PuzzleGrid, PuzzleSquareState};
 
 // Number of swaps to make when shuffling the puzzle
 const N_SHUFFLE_SWAPS: usize = 10;
-
-#[derive(Clone, Debug)]
-struct SolutionGrid {
-    // The solution contains the actual letters. The grid is stored as
-    // an array including positions for the gaps to make it easier to
-    // index. The gaps will just be ignored.
-    letters: [char; WORD_LENGTH * WORD_LENGTH]
-}
-
-#[derive(Clone, Copy, Debug)]
-enum PuzzleSquareState {
-    Correct,
-    WrongPosition,
-    Wrong,
-}
-
-#[derive(Clone, Copy, Debug)]
-struct PuzzleSquare {
-    position: usize,
-    state: PuzzleSquareState,
-}
-
-#[derive(Clone, Debug)]
-struct PuzzleGrid {
-    // The puzzle is stored is indices into the solution grid so that
-    // changing a letter will change it in both grids
-    squares: [PuzzleSquare; WORD_LENGTH * WORD_LENGTH]
-}
-
-#[derive(Clone, Debug)]
-struct GridPair {
-    solution: SolutionGrid,
-    puzzle: PuzzleGrid,
-}
-
-#[derive(Debug)]
-enum GridPairParseError {
-    NonUppercaseLetter,
-    TooShort,
-    TooLong,
-    DuplicateIndex,
-    InvalidIndex,
-}
 
 enum EditDirection {
     Right,
@@ -99,12 +57,12 @@ struct Word {
 
 struct Editor {
     dictionary: Arc<Dictionary>,
-    grid_senders: Vec<mpsc::Sender<(usize, GridPair)>>,
+    grid_senders: Vec<mpsc::Sender<(usize, Grid)>>,
     should_quit: bool,
     grid_x: i32,
     grid_y: i32,
     current_puzzle: usize,
-    puzzles: Vec<GridPair>,
+    puzzles: Vec<Grid>,
     cursor_x: i32,
     cursor_y: i32,
     edit_direction: EditDirection,
@@ -130,21 +88,10 @@ struct SolutionEvent {
 
 struct SolverThread {
     word_join_handle: thread::JoinHandle<()>,
-    word_grid_sender: mpsc::Sender<(usize, GridPair)>,
+    word_grid_sender: mpsc::Sender<(usize, Grid)>,
     swap_join_handle: thread::JoinHandle<()>,
-    swap_grid_sender: mpsc::Sender<(usize, GridPair)>,
+    swap_grid_sender: mpsc::Sender<(usize, Grid)>,
     event_receiver: mpsc::Receiver<SolutionEvent>,
-}
-
-fn is_gap_space(x: i32, y: i32) -> bool {
-    x & 1 == 1 && y & 1 == 1
-}
-
-fn is_gap_position(position: usize) -> bool {
-    is_gap_space(
-        (position % WORD_LENGTH) as i32,
-        (position / WORD_LENGTH) as i32,
-    )
 }
 
 fn addch_utf8(ch: char) {
@@ -153,382 +100,170 @@ fn addch_utf8(ch: char) {
     ncurses::addstr(ch.encode_utf8(&mut buf));
 }
 
-impl SolutionGrid {
-    fn new() -> SolutionGrid {
-        SolutionGrid {
-            letters: ['A'; WORD_LENGTH * WORD_LENGTH]
-        }
-    }
+fn draw_solution_grid(grid: &SolutionGrid, grid_x: i32, grid_y: i32) {
+    for y in 0..WORD_LENGTH {
+        ncurses::mv(grid_y + y as i32, grid_x);
 
-    fn draw(&self, grid_x: i32, grid_y: i32) {
-        for y in 0..WORD_LENGTH {
-            ncurses::mv(grid_y + y as i32, grid_x);
-
-            for x in 0..WORD_LENGTH {
-                if is_gap_space(x as i32, y as i32) {
-                    ncurses::addch(' ' as u32);
-                } else {
-                    addch_utf8(self.letters[y * WORD_LENGTH + x]);
-                }
-            }
-        }
-    }
-}
-
-impl PuzzleGrid {
-    fn new() -> PuzzleGrid {
-        let default_square = PuzzleSquare {
-            position: 0,
-            state: PuzzleSquareState::Correct,
-        };
-
-        let mut grid = PuzzleGrid {
-            squares: [default_square; WORD_LENGTH * WORD_LENGTH],
-        };
-
-        grid.reset();
-
-        grid
-    }
-
-    fn reset(&mut self) {
-        for (i, square) in self.squares.iter_mut().enumerate() {
-            square.position = i;
-        }
-    }
-
-    fn shuffle(&mut self) {
-        self.reset();
-
-        let mut used_squares = 0;
-        let mut rng = rand::thread_rng();
-
-        // Make 10 random swaps out of squares that aren’t involved in
-        // previous swaps
-        for swap_num in 0..N_SHUFFLE_SWAPS {
-            let n_positions = N_LETTERS - swap_num * 2;
-            let a = rng.gen_range(0..n_positions - 1);
-            let b = rng.gen_range(a + 1..n_positions);
-
-            let mut positions = (0..WORD_LENGTH * WORD_LENGTH)
-                .filter(|&pos| {
-                    !is_gap_position(pos)
-                        && used_squares & (1 << pos) == 0
-                });
-
-            assert_eq!(n_positions, positions.clone().count());
-
-            let a_pos = positions.nth(a).unwrap();
-            let b_pos = positions.nth(b - a - 1).unwrap();
-
-            self.squares.swap(a_pos, b_pos);
-
-            used_squares |= (1 << a_pos) | (1 << b_pos)
-        }
-    }
-
-    fn draw(
-        &self,
-        grid_x: i32,
-        grid_y: i32,
-        solution: &SolutionGrid,
-        selected_position: Option<usize>,
-    ) {
-        for y in 0..WORD_LENGTH {
-            ncurses::mv(grid_y + y as i32, grid_x);
-
-            for x in 0..WORD_LENGTH {
-                if is_gap_space(x as i32, y as i32) {
-                    ncurses::addch(' ' as u32);
-                } else {
-                    let square = self.squares[y * WORD_LENGTH + x];
-                    let is_selected = selected_position
-                        .map(|p| p == y * WORD_LENGTH + x)
-                        .unwrap_or(false);
-
-                    if is_selected {
-                        ncurses::attron(ncurses::A_BOLD());
-                    }
-
-                    ncurses::attron(ncurses::COLOR_PAIR(square.state.color()));
-
-                    addch_utf8(solution.letters[square.position]);
-
-                    ncurses::attroff(ncurses::COLOR_PAIR(square.state.color()));
-
-                    if is_selected {
-                        ncurses::attroff(ncurses::A_BOLD());
-                    }
-                }
-            }
-        }
-    }
-}
-
-impl GridPair {
-    fn new() -> GridPair {
-        GridPair {
-            solution: SolutionGrid::new(),
-            puzzle: PuzzleGrid::new(),
-        }
-    }
-
-    fn puzzle_x() -> i32 {
-        WORD_LENGTH.max(9) as i32 + 2
-    }
-
-    fn draw(&self, grid_x: i32, grid_y: i32, selected_position: Option<usize>) {
-        ncurses::mvaddstr(grid_y, grid_x, "Solution:");
-        self.solution.draw(grid_x, grid_y + 1);
-
-        let grid_x = grid_x + GridPair::puzzle_x();
-        ncurses::mvaddstr(grid_y, grid_x, "Puzzle:");
-        self.puzzle.draw(
-            grid_x, grid_y + 1,
-            &self.solution,
-            selected_position,
-        );
-    }
-
-    fn update_square_letters_for_word<I>(&mut self, positions: I)
-    where
-        I: IntoIterator<Item = usize> + Clone
-    {
-        let mut used_letters = 0;
-
-        // Mark all of the letters in the correct position already as used
-        for (i, position) in positions.clone().into_iter().enumerate() {
-            if matches!(
-                self.puzzle.squares[position].state,
-                PuzzleSquareState::Correct,
-            ) {
-                used_letters |= 1 << i;
-            }
-        }
-
-        for position in positions.clone() {
-            if matches!(
-                self.puzzle.squares[position].state,
-                PuzzleSquareState::Correct,
-            ) {
-                continue;
-            }
-
-            let letter = self.solution.letters[position];
-            let mut best_pos = None;
-
-            for (i, position) in positions.clone().into_iter().enumerate() {
-                let square = self.puzzle.squares[position];
-                let puzzle_letter =
-                    self.solution.letters[square.position];
-
-                if used_letters & (1 << i) == 0 && puzzle_letter == letter {
-                    // It’s better to use a letter in the
-                    // WrongPosition state in case it was marked by a
-                    // word that crosses this one because we don’t
-                    // want to have two yellow letters for the same
-                    // letter.
-                    if matches!(
-                        square.state,
-                        PuzzleSquareState::WrongPosition,
-                    ) {
-                        best_pos = Some((i, position));
-                        break;
-                    } else if best_pos.is_none() {
-                        best_pos = Some((i, position));
-                    }
-                }
-            }
-
-            if let Some((i, position)) = best_pos {
-                used_letters |= 1 << i;
-                self.puzzle.squares[position].state =
-                    PuzzleSquareState::WrongPosition;
-            }
-        }
-    }
-
-    fn update_square_states(&mut self) {
-        for (i, square) in self.puzzle.squares.iter_mut().enumerate() {
-            if self.solution.letters[i]
-                == self.solution.letters[square.position]
-            {
-                square.state = PuzzleSquareState::Correct;
+        for x in 0..WORD_LENGTH {
+            if grid::is_gap_space(x as i32, y as i32) {
+                ncurses::addch(' ' as u32);
             } else {
-                square.state = PuzzleSquareState::Wrong;
+                addch_utf8(grid.letters[y * WORD_LENGTH + x]);
             }
         }
-
-        for i in 0..N_WORDS_ON_AXIS {
-            self.update_square_letters_for_word(
-                i * 2 * WORD_LENGTH..(i * 2 + 1) * WORD_LENGTH,
-            );
-            self.update_square_letters_for_word(
-                (i * 2..i * 2 + WORD_LENGTH * WORD_LENGTH).step_by(WORD_LENGTH),
-            );
-        }
     }
+}
 
-    fn to_grid(&self) -> Result<LetterGrid, letter_grid::ParseError> {
-        let mut grid_string = String::new();
+fn shuffle_grid(grid: &mut PuzzleGrid) {
+    grid.reset();
 
-        for y in 0..WORD_LENGTH {
-            for x in 0..WORD_LENGTH {
-                if is_gap_space(x as i32, y as i32) {
-                    grid_string.push(' ');
-                } else {
-                    let pos = x + y * WORD_LENGTH;
-                    let square = &self.puzzle.squares[pos];
-                    let letter = self.solution.letters[square.position];
+    let mut used_squares = 0;
+    let mut rng = rand::thread_rng();
 
-                    match square.state {
-                        PuzzleSquareState::Correct => {
-                            grid_string.extend(letter.to_uppercase());
-                        },
-                        PuzzleSquareState::Wrong
-                            | PuzzleSquareState::WrongPosition =>
-                        {
-                            grid_string.extend(letter.to_lowercase());
-                        },
-                    }
+    // Make 10 random swaps out of squares that aren’t involved in
+    // previous swaps
+    for swap_num in 0..N_SHUFFLE_SWAPS {
+        let n_positions = N_LETTERS - swap_num * 2;
+        let a = rng.gen_range(0..n_positions - 1);
+        let b = rng.gen_range(a + 1..n_positions);
+
+        let mut positions = (0..WORD_LENGTH * WORD_LENGTH)
+            .filter(|&pos| {
+                !grid::is_gap_position(pos)
+                    && used_squares & (1 << pos) == 0
+            });
+
+        assert_eq!(n_positions, positions.clone().count());
+
+        let a_pos = positions.nth(a).unwrap();
+        let b_pos = positions.nth(b - a - 1).unwrap();
+
+        grid.squares.swap(a_pos, b_pos);
+
+        used_squares |= (1 << a_pos) | (1 << b_pos)
+    }
+}
+
+fn draw_puzzle_grid(
+    grid: &PuzzleGrid,
+    grid_x: i32,
+    grid_y: i32,
+    solution: &SolutionGrid,
+    selected_position: Option<usize>,
+) {
+    for y in 0..WORD_LENGTH {
+        ncurses::mv(grid_y + y as i32, grid_x);
+
+        for x in 0..WORD_LENGTH {
+            if grid::is_gap_space(x as i32, y as i32) {
+                ncurses::addch(' ' as u32);
+            } else {
+                let square = grid.squares[y * WORD_LENGTH + x];
+                let is_selected = selected_position
+                    .map(|p| p == y * WORD_LENGTH + x)
+                    .unwrap_or(false);
+
+                if is_selected {
+                    ncurses::attron(ncurses::A_BOLD());
+                }
+
+                let color = ncurses::COLOR_PAIR(color_for_state(square.state));
+
+                ncurses::attron(color);
+
+                addch_utf8(solution.letters[square.position]);
+
+                ncurses::attroff(color);
+
+                if is_selected {
+                    ncurses::attroff(ncurses::A_BOLD());
                 }
             }
-
-            grid_string.push('\n');
-        }
-
-        grid_string.parse::<LetterGrid>()
-    }
-
-    fn minimum_swaps(&self) -> Option<usize> {
-        let solution = self.solution
-            .letters
-            .iter()
-            .map(|&letter| letter)
-            .collect::<Vec<char>>();
-        let puzzle = self.puzzle
-            .squares
-            .iter()
-            .map(|square| self.solution.letters[square.position])
-            .collect::<Vec<char>>();
-
-        swap_solver::solve(&puzzle, &solution).map(|solution| solution.len())
-    }
-}
-
-impl fmt::Display for GridPair {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        for (i, letter) in self.solution.letters.iter().enumerate() {
-            if !is_gap_position(i) {
-                write!(f, "{}", letter)?;
-            }
-        }
-
-        for (i, square) in self.puzzle.squares.iter().enumerate() {
-            if !is_gap_position(i) {
-                write!(
-                    f,
-                    "{}",
-                    char::from_u32(
-                        b'a' as u32
-                            + square.position as u32
-                    ).unwrap(),
-                )?;
-            }
-        }
-
-        Ok(())
-    }
-}
-
-impl std::str::FromStr for GridPair {
-    type Err = GridPairParseError;
-
-    fn from_str(s: &str) -> Result<GridPair, GridPairParseError> {
-        let mut grid_pair = GridPair::new();
-        let mut chars = s.chars();
-
-        for (i, letter) in grid_pair.solution.letters.iter_mut().enumerate() {
-            if is_gap_position(i) {
-                continue;
-            }
-
-            match chars.next() {
-                Some(ch) => {
-                    if !ch.is_uppercase() {
-                        return Err(GridPairParseError::NonUppercaseLetter);
-                    }
-                    *letter = ch;
-                },
-                None => return Err(GridPairParseError::TooShort),
-            }
-        }
-
-        let mut used_positions = 0;
-
-        for (i, square) in grid_pair.puzzle.squares.iter_mut().enumerate() {
-            if is_gap_position(i) {
-                continue;
-            }
-
-            match chars.next() {
-                Some(ch) => {
-                    let Some(position) = (ch as usize).checked_sub('a' as usize)
-                        .filter(|pos| {
-                            *pos < WORD_LENGTH * WORD_LENGTH
-                                && !is_gap_position(*pos)
-                        })
-                    else {
-                        return Err(GridPairParseError::InvalidIndex);
-                    };
-
-                    if used_positions & (1 << position) != 0 {
-                        return Err(GridPairParseError::DuplicateIndex);
-                    }
-
-                    square.position = position;
-
-                    used_positions |= 1 << position;
-                },
-                None => return Err(GridPairParseError::TooShort),
-            }
-        }
-
-        if chars.next().is_some() {
-            return Err(GridPairParseError::TooLong);
-        }
-
-        grid_pair.update_square_states();
-
-        Ok(grid_pair)
-    }
-}
-
-impl fmt::Display for GridPairParseError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            GridPairParseError::NonUppercaseLetter => {
-                write!(f, "non-uppercase letter")
-            },
-            GridPairParseError::TooShort => write!(f, "too short"),
-            GridPairParseError::TooLong => write!(f, "too long"),
-            GridPairParseError::DuplicateIndex => write!(f, "duplicate index"),
-            GridPairParseError::InvalidIndex => write!(f, "invalid index"),
         }
     }
 }
 
-impl PuzzleSquareState {
-    fn color(&self) -> i16 {
-        *self as i16 + 1
+fn puzzle_x() -> i32 {
+    WORD_LENGTH.max(9) as i32 + 2
+}
+
+fn draw_grid(
+    grid: &Grid,
+    grid_x: i32,
+    grid_y: i32,
+    selected_position: Option<usize>,
+) {
+    ncurses::mvaddstr(grid_y, grid_x, "Solution:");
+    draw_solution_grid(&grid.solution, grid_x, grid_y + 1);
+
+    let grid_x = grid_x + puzzle_x();
+    ncurses::mvaddstr(grid_y, grid_x, "Puzzle:");
+    draw_puzzle_grid(
+        &grid.puzzle,
+        grid_x, grid_y + 1,
+        &grid.solution,
+        selected_position,
+    );
+}
+
+fn grid_to_letter_grid(
+    grid: &Grid
+) -> Result<LetterGrid, letter_grid::ParseError> {
+    let mut grid_string = String::new();
+
+    for y in 0..WORD_LENGTH {
+        for x in 0..WORD_LENGTH {
+            if grid::is_gap_space(x as i32, y as i32) {
+                grid_string.push(' ');
+            } else {
+                let pos = x + y * WORD_LENGTH;
+                let square = &grid.puzzle.squares[pos];
+                let letter = grid.solution.letters[square.position];
+
+                match square.state {
+                    PuzzleSquareState::Correct => {
+                        grid_string.extend(letter.to_uppercase());
+                    },
+                    PuzzleSquareState::Wrong
+                        | PuzzleSquareState::WrongPosition =>
+                    {
+                        grid_string.extend(letter.to_lowercase());
+                    },
+                }
+            }
+        }
+
+        grid_string.push('\n');
     }
+
+    grid_string.parse::<LetterGrid>()
+}
+
+fn minimum_swaps(grid: &Grid) -> Option<usize> {
+    let solution = grid.solution
+        .letters
+        .iter()
+        .map(|&letter| letter)
+        .collect::<Vec<char>>();
+    let puzzle = grid.puzzle
+        .squares
+        .iter()
+        .map(|square| grid.solution.letters[square.position])
+        .collect::<Vec<char>>();
+
+    swap_solver::solve(&puzzle, &solution).map(|solution| solution.len())
+}
+
+#[inline(always)]
+fn color_for_state(state: PuzzleSquareState) -> i16 {
+    state as i16 + 1
 }
 
 impl Editor {
     fn new(
-        puzzles: Vec<GridPair>,
+        puzzles: Vec<Grid>,
         dictionary: Arc<Dictionary>,
-        grid_senders: Vec<mpsc::Sender<(usize, GridPair)>>,
+        grid_senders: Vec<mpsc::Sender<(usize, Grid)>>,
         grid_x: i32,
         grid_y: i32,
     ) -> Editor {
@@ -562,9 +297,10 @@ impl Editor {
 
     fn redraw(&self) {
         ncurses::clear();
-        let grid_pair = &self.puzzles[self.current_puzzle];
+        let grid = &self.puzzles[self.current_puzzle];
 
-        grid_pair.draw(
+        draw_grid(
+            &grid,
             self.grid_x,
             self.grid_y,
             self.selected_position
@@ -576,7 +312,7 @@ impl Editor {
         };
 
         let right_side = self.grid_x
-            + GridPair::puzzle_x()
+            + puzzle_x()
             + WORD_LENGTH as i32
             + 5;
 
@@ -648,7 +384,7 @@ impl Editor {
                         let mut letter = [0u8; 4];
                         let letter = ch.encode_utf8(&mut letter);
 
-                        if ch != grid_pair.solution.letters[position] {
+                        if ch != grid.solution.letters[position] {
                             ncurses::attron(ncurses::A_BOLD());
                             ncurses::addstr(letter);
                             ncurses::attroff(ncurses::A_BOLD());
@@ -674,7 +410,7 @@ impl Editor {
     fn position_cursor(&self) {
         let x = match self.current_grid {
             GridChoice::Solution => 0,
-            GridChoice::Puzzle => GridPair::puzzle_x(),
+            GridChoice::Puzzle => puzzle_x(),
         };
 
         ncurses::mv(
@@ -687,7 +423,7 @@ impl Editor {
         let mut x = self.cursor_x + x_offset;
         let mut y = self.cursor_y + y_offset;
 
-        if is_gap_space(x, y) {
+        if grid::is_gap_space(x, y) {
             x += x_offset;
             y += y_offset;
         }
@@ -732,17 +468,17 @@ impl Editor {
         let position = self.cursor_x as usize
             + self.cursor_y as usize * WORD_LENGTH;
 
-        let grid_pair = &mut self.puzzles[self.current_puzzle];
+        let grid = &mut self.puzzles[self.current_puzzle];
 
         let position = match self.current_grid {
             GridChoice::Solution => position,
             GridChoice::Puzzle => {
-                grid_pair.puzzle.squares[position].position
+                grid.puzzle.squares[position].position
             },
         };
 
-        grid_pair.solution.letters[position] = ch;
-        grid_pair.update_square_states();
+        grid.solution.letters[position] = ch;
+        grid.update_square_states();
         self.update_words();
         self.send_grid();
 
@@ -750,7 +486,7 @@ impl Editor {
             EditDirection::Down => {
                 if self.cursor_y + 1 < WORD_LENGTH as i32 {
                     self.cursor_y += 1;
-                    if is_gap_space(self.cursor_x, self.cursor_y) {
+                    if grid::is_gap_space(self.cursor_x, self.cursor_y) {
                         self.cursor_y += 1;
                     }
                 }
@@ -758,7 +494,7 @@ impl Editor {
             EditDirection::Right => {
                 if self.cursor_x + 1 < WORD_LENGTH as i32 {
                     self.cursor_x += 1;
-                    if is_gap_space(self.cursor_x, self.cursor_y) {
+                    if grid::is_gap_space(self.cursor_x, self.cursor_y) {
                         self.cursor_x += 1;
                     }
                 }
@@ -799,9 +535,9 @@ impl Editor {
         if matches!(self.current_grid, GridChoice::Puzzle) {
             if let Some(pos) = self.selected_position {
                 let cursor_pos = self.cursor_pos();
-                let grid_pair = &mut self.puzzles[self.current_puzzle];
-                grid_pair.puzzle.squares.swap(pos, cursor_pos);
-                grid_pair.update_square_states();
+                let grid = &mut self.puzzles[self.current_puzzle];
+                grid.puzzle.squares.swap(pos, cursor_pos);
+                grid.update_square_states();
                 self.selected_position = None;
                 self.send_grid();
                 self.redraw();
@@ -838,18 +574,18 @@ impl Editor {
 
     fn update_words(&mut self) {
         for word in 0..N_WORDS_ON_AXIS {
-            let grid_pair = &self.puzzles[self.current_puzzle];
+            let grid = &self.puzzles[self.current_puzzle];
 
             let horizontal = &mut self.words[word];
             horizontal.text.clear();
             horizontal.text.extend((0..WORD_LENGTH).map(|pos| {
-                grid_pair.solution.letters[pos + word * WORD_LENGTH * 2]
+                grid.solution.letters[pos + word * WORD_LENGTH * 2]
             }));
 
             let vertical = &mut self.words[word + N_WORDS_ON_AXIS];
             vertical.text.clear();
             vertical.text.extend((0..WORD_LENGTH).map(|pos| {
-                grid_pair.solution.letters[pos * WORD_LENGTH + word * 2]
+                grid.solution.letters[pos * WORD_LENGTH + word * 2]
             }));
         }
 
@@ -885,10 +621,10 @@ impl Editor {
         self.had_all_solutions = false;
         self.shortest_swap_solution = None;
 
-        let grid_pair = self.puzzles[self.current_puzzle].clone();
+        let grid = self.puzzles[self.current_puzzle].clone();
 
         for grid_sender in self.grid_senders.iter() {
-            let _ = grid_sender.send((self.grid_id, grid_pair.clone()));
+            let _ = grid_sender.send((self.grid_id, grid.clone()));
         }
     }
 
@@ -909,14 +645,14 @@ impl Editor {
     }
 
     fn new_puzzle(&mut self) {
-        self.puzzles.push(GridPair::new());
+        self.puzzles.push(Grid::new());
         self.set_current_puzzle(self.puzzles.len() - 1);
     }
 
     fn shuffle_puzzle(&mut self) {
-        let grid_pair = &mut self.puzzles[self.current_puzzle];
-        grid_pair.puzzle.shuffle();
-        grid_pair.update_square_states();
+        let grid = &mut self.puzzles[self.current_puzzle];
+        shuffle_grid(&mut grid.puzzle);
+        grid.update_square_states();
         self.send_grid();
         self.redraw();
     }
@@ -943,7 +679,7 @@ fn load_dictionary() -> Result<Arc<Dictionary>, ()> {
     Ok(Arc::new(Dictionary::new(data.into_boxed_slice())))
 }
 
-fn load_puzzles() -> Result<Vec<GridPair>, ()> {
+fn load_puzzles() -> Result<Vec<Grid>, ()> {
     let filename = "puzzles.txt";
     let mut puzzles = Vec::new();
 
@@ -951,7 +687,7 @@ fn load_puzzles() -> Result<Vec<GridPair>, ()> {
         Ok(f) => f,
         Err(e) => {
             if e.kind() == std::io::ErrorKind::NotFound {
-                return Ok(vec![GridPair::new()]);
+                return Ok(vec![Grid::new()]);
             } else {
                 eprintln!("{}: {}", filename, e);
                 return Err(());
@@ -974,7 +710,7 @@ fn load_puzzles() -> Result<Vec<GridPair>, ()> {
             continue;
         }
 
-        match line.parse::<GridPair>() {
+        match line.parse::<Grid>() {
             Ok(grid) => puzzles.push(grid),
             Err(e) => {
                 eprintln!("{}:{}: {}", filename, line_num + 1, e);
@@ -991,7 +727,7 @@ fn load_puzzles() -> Result<Vec<GridPair>, ()> {
     Ok(puzzles)
 }
 
-fn save_puzzles(puzzles: &[GridPair]) {
+fn save_puzzles(puzzles: &[Grid]) {
     let f = match std::fs::File::create("puzzles.txt.tmp") {
         Ok(f) => f,
         Err(_) => return,
@@ -1141,9 +877,9 @@ impl SolverThread {
         wakeup_fd: c_int,
     ) -> SolverThread {
         let (word_grid_sender, word_grid_receiver) =
-            mpsc::channel::<(usize, GridPair)>();
+            mpsc::channel::<(usize, Grid)>();
         let (swap_grid_sender, swap_grid_receiver) =
-            mpsc::channel::<(usize, GridPair)>();
+            mpsc::channel::<(usize, Grid)>();
         let (event_sender, event_receiver) = mpsc::channel();
 
         let word_event_sender = EventSender::new(
@@ -1155,8 +891,8 @@ impl SolverThread {
         let word_join_handle = thread::spawn(move || {
             let skip_receiver = SkipReceiverIter::new(word_grid_receiver);
 
-            for (grid_id, grid_pair) in skip_receiver {
-                let Ok(grid) = grid_pair.to_grid()
+            for (grid_id, grid) in skip_receiver {
+                let Ok(grid) = grid_to_letter_grid(&grid)
                 else {
                     continue;
                 };
@@ -1188,8 +924,8 @@ impl SolverThread {
         let swap_join_handle = thread::spawn(move || {
             let skip_receiver = SkipReceiverIter::new(swap_grid_receiver);
 
-            for (grid_id, grid_pair) in skip_receiver {
-                if let Some(n_swaps) = grid_pair.minimum_swaps() {
+            for (grid_id, grid) in skip_receiver {
+                if let Some(n_swaps) = minimum_swaps(&grid) {
                     let event = SolutionEvent::new(
                         grid_id,
                         SolutionEventKind::SwapSolution(n_swaps),
@@ -1272,17 +1008,17 @@ fn main() -> ExitCode {
     ncurses::nodelay(ncurses::stdscr(), true);
 
     ncurses::init_pair(
-        PuzzleSquareState::Correct.color(),
+        color_for_state(PuzzleSquareState::Correct),
         ncurses::COLOR_GREEN,
         ncurses::COLOR_BLACK,
     );
     ncurses::init_pair(
-        PuzzleSquareState::WrongPosition.color(),
+        color_for_state(PuzzleSquareState::WrongPosition),
         ncurses::COLOR_YELLOW,
         ncurses::COLOR_BLACK,
     );
     ncurses::init_pair(
-        PuzzleSquareState::Wrong.color(),
+        color_for_state(PuzzleSquareState::Wrong),
         ncurses::COLOR_WHITE,
         ncurses::COLOR_BLACK,
     );
@@ -1321,132 +1057,4 @@ fn main() -> ExitCode {
     ncurses::endwin();
 
     ExitCode::SUCCESS
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn grid_pair_parse() {
-        assert!(matches!(
-            "aaaaaaaaaaaaaaaaaaaaa\
-             abcdefhjklmnoprtuvwxy".parse::<GridPair>(),
-            Err(GridPairParseError::NonUppercaseLetter),
-        ));
-        assert!(matches!(
-            "AAAAAAAAAAAAAAAAAAAAA\
-             abcdefhjklmnoprtuvwx".parse::<GridPair>(),
-            Err(GridPairParseError::TooShort),
-        ));
-        assert!(matches!(
-            "AAAAAAAAAAAAAAAAAAAA".parse::<GridPair>(),
-            Err(GridPairParseError::TooShort),
-        ));
-        assert!(matches!(
-            "AAAAAAAAAAAAAAAAAAAAA\
-             abcdefhjklmnoprtuvwxyz".parse::<GridPair>(),
-            Err(GridPairParseError::TooLong),
-        ));
-        // Index to a space
-        assert!(matches!(
-            "AAAAAAAAAAAAAAAAAAAAA\
-             abcdeghjklmnoprtuvwxy".parse::<GridPair>(),
-            Err(GridPairParseError::InvalidIndex),
-        ));
-        // Index too high
-        assert!(matches!(
-            "AAAAAAAAAAAAAAAAAAAAA\
-             abcdefhjklmnoprtuvwxz".parse::<GridPair>(),
-            Err(GridPairParseError::InvalidIndex),
-        ));
-        // Index too low
-        assert!(matches!(
-            "AAAAAAAAAAAAAAAAAAAAA\
-             abcdefhjklmnoprtuvwx@".parse::<GridPair>(),
-            Err(GridPairParseError::InvalidIndex),
-        ));
-        // Duplicate index
-        assert!(matches!(
-            "AAAAAAAAAAAAAAAAAAAAA\
-             aacdefhjklmnoprtuvwxy".parse::<GridPair>(),
-            Err(GridPairParseError::DuplicateIndex),
-        ));
-
-        let grid = "ABCDEFHJKLMNOPRTUVWXY\
-                    bacdefhjklmnoprtuvwxy".parse::<GridPair>().unwrap();
-
-        for pos in 0..WORD_LENGTH * WORD_LENGTH {
-            if !is_gap_position(pos) {
-                assert_eq!(
-                    grid.solution.letters[pos],
-                    char::from_u32(pos as u32 + 'A' as u32).unwrap(),
-                );
-            }
-        }
-
-        assert_eq!(grid.puzzle.squares[0].position, 1);
-        assert!(matches!(
-            grid.puzzle.squares[0].state,
-            PuzzleSquareState::WrongPosition,
-        ));
-        assert_eq!(grid.puzzle.squares[1].position, 0);
-        assert!(matches!(
-            grid.puzzle.squares[1].state,
-            PuzzleSquareState::WrongPosition,
-        ));
-
-        for pos in 2..WORD_LENGTH * WORD_LENGTH {
-            let square = &grid.puzzle.squares[pos];
-            assert_eq!(square.position, pos);
-            assert!(matches!(square.state, PuzzleSquareState::Correct));
-        }
-    }
-
-    #[test]
-    fn grid_pair_display() {
-        let tests = [
-            "ABCDEFHJKLMNOPRTUVWXY\
-             bacdefhjklmnoprtuvwxy",
-        ];
-
-        for test in tests {
-            assert_eq!(
-                test,
-                &test.parse::<GridPair>().unwrap().to_string(),
-            );
-        }
-    }
-
-    #[test]
-    fn duplicate_correct() {
-        let grid_pair = "KULPOEIKMANĜUIDPOMAĜI\
-                         jlmorpaknbchdftwuyexv"
-            .parse::<GridPair>().unwrap();
-
-        let row = &grid_pair.puzzle.squares[
-            WORD_LENGTH * (WORD_LENGTH - 1)..WORD_LENGTH * WORD_LENGTH
-        ];
-
-        assert!(matches!(row[0].state, PuzzleSquareState::Correct));
-        assert!(matches!(row[1].state, PuzzleSquareState::WrongPosition));
-        assert!(matches!(row[2].state, PuzzleSquareState::Wrong));
-        assert!(matches!(row[3].state, PuzzleSquareState::Correct));
-        assert!(matches!(row[4].state, PuzzleSquareState::WrongPosition));
-    }
-
-    #[test]
-    fn vertical_square_states() {
-        let grid_pair = "MORSAUUKROLASDOOURSOJ\
-                         ardxnhpfmvulwtybkeocj"
-            .parse::<GridPair>().unwrap();
-
-        let squares = &grid_pair.puzzle.squares;
-
-        assert!(matches!(squares[4].state, PuzzleSquareState::Correct));
-        assert!(matches!(squares[9].state, PuzzleSquareState::Wrong));
-        assert!(matches!(squares[14].state, PuzzleSquareState::Correct));
-        assert!(matches!(squares[19].state, PuzzleSquareState::Correct));
-        assert!(matches!(squares[24].state, PuzzleSquareState::WrongPosition));
-    }
 }
