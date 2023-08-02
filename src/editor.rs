@@ -25,7 +25,8 @@ mod swap_solver;
 mod grid;
 
 use std::process::ExitCode;
-use letter_grid::{LetterGrid, WORD_LENGTH, N_WORDS_ON_AXIS, N_LETTERS};
+use letter_grid::LetterGrid;
+use grid::{WORD_LENGTH, N_WORDS_ON_AXIS, N_LETTERS};
 use dictionary::Dictionary;
 use std::ffi::c_int;
 use std::sync::{Arc, mpsc};

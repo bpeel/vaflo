@@ -16,7 +16,8 @@
 
 use std::fmt;
 
-use super::letter_grid::{LetterGrid, LetterState, WORD_LENGTH, N_WORDS_ON_AXIS};
+use super::letter_grid::{LetterGrid, LetterState};
+use super::grid::{WORD_LENGTH, N_WORDS_ON_AXIS};
 
 #[derive(Debug, Clone)]
 pub struct Word {

@@ -16,14 +16,7 @@
 
 use std::fmt;
 use std::str::FromStr;
-
-pub const WORD_LENGTH: usize = 5;
-pub const N_WORDS_ON_AXIS: usize = (WORD_LENGTH + 1) / 2;
-// The number of letters not at an intersection per word
-const N_SPACING_LETTERS: usize = WORD_LENGTH - N_WORDS_ON_AXIS;
-// Total number of letters in the grid
-pub const N_LETTERS: usize =
-    (WORD_LENGTH + N_SPACING_LETTERS) * N_WORDS_ON_AXIS;
+use super::grid::{WORD_LENGTH, N_WORDS_ON_AXIS, N_SPACING_LETTERS, N_LETTERS};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LetterState {

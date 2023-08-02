@@ -14,7 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use super::letter_grid::{WORD_LENGTH, N_WORDS_ON_AXIS};
+pub const WORD_LENGTH: usize = 5;
+pub const N_WORDS_ON_AXIS: usize = (WORD_LENGTH + 1) / 2;
+// The number of letters not at an intersection per word
+pub const N_SPACING_LETTERS: usize = WORD_LENGTH - N_WORDS_ON_AXIS;
+// Total number of letters in the grid
+pub const N_LETTERS: usize =
+    (WORD_LENGTH + N_SPACING_LETTERS) * N_WORDS_ON_AXIS;
+
 use std::fmt;
 
 #[derive(Clone, Debug)]

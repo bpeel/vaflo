@@ -17,6 +17,7 @@
 mod permute;
 mod dictionary;
 mod word_solver;
+mod grid;
 mod letter_grid;
 mod word_grid;
 mod grid_solver;
@@ -27,7 +28,8 @@ use std::process::ExitCode;
 use std::io;
 use std::ffi::OsStr;
 use dictionary::Dictionary;
-use letter_grid::{LetterGrid, N_WORDS_ON_AXIS, WORD_LENGTH};
+use letter_grid::LetterGrid;
+use grid::{N_WORDS_ON_AXIS, WORD_LENGTH};
 
 fn load_dictionary(filename: &OsStr) -> Result<Dictionary, io::Error> {
     std::fs::read(filename).map(|data| Dictionary::new(data.into_boxed_slice()))
