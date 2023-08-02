@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-mod grid;
+mod letter_grid;
 mod dictionary;
 mod word_grid;
 mod word_solver;
@@ -24,7 +24,7 @@ mod pairs;
 mod swap_solver;
 
 use std::process::ExitCode;
-use grid::{WORD_LENGTH, N_WORDS_ON_AXIS, N_LETTERS};
+use letter_grid::{LetterGrid, WORD_LENGTH, N_WORDS_ON_AXIS, N_LETTERS};
 use dictionary::Dictionary;
 use std::ffi::c_int;
 use std::sync::{Arc, mpsc};
@@ -369,7 +369,7 @@ impl GridPair {
         }
     }
 
-    fn to_grid(&self) -> Result<grid::Grid, grid::ParseError> {
+    fn to_grid(&self) -> Result<LetterGrid, letter_grid::ParseError> {
         let mut grid_string = String::new();
 
         for y in 0..WORD_LENGTH {
@@ -397,7 +397,7 @@ impl GridPair {
             grid_string.push('\n');
         }
 
-        grid_string.parse::<grid::Grid>()
+        grid_string.parse::<LetterGrid>()
     }
 
     fn minimum_swaps(&self) -> Option<usize> {

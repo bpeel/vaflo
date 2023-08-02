@@ -38,7 +38,7 @@ pub struct Letter {
 }
 
 #[derive(Debug, Clone)]
-pub struct Grid {
+pub struct LetterGrid {
     letters: [Letter; N_LETTERS],
 }
 
@@ -57,7 +57,7 @@ const DEFAULT_LETTER: Letter = Letter {
     state: LetterState::Movable,
 };
 
-impl fmt::Display for Grid {
+impl fmt::Display for LetterGrid {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for word_num in 0..N_WORDS_ON_AXIS {
             for i in 0..WORD_LENGTH {
@@ -123,11 +123,11 @@ impl Letter {
     }
 }
 
-impl FromStr for Grid {
+impl FromStr for LetterGrid {
     type Err = ParseError;
 
-    fn from_str(s: &str) -> Result<Grid, ParseError> {
-        let mut grid = Grid { letters: [DEFAULT_LETTER; N_LETTERS] };
+    fn from_str(s: &str) -> Result<LetterGrid, ParseError> {
+        let mut grid = LetterGrid { letters: [DEFAULT_LETTER; N_LETTERS] };
 
         let mut line_num = 0;
 
@@ -153,7 +153,7 @@ impl FromStr for Grid {
     }
 }
 
-impl Grid {
+impl LetterGrid {
     fn set_horizontal_word(
         &mut self,
         line_num: usize,
@@ -272,7 +272,7 @@ mod test {
                            n O P\n\
                            QRSTu";
 
-        let grid = grid_source.parse::<Grid>().unwrap();
+        let grid = grid_source.parse::<LetterGrid>().unwrap();
 
         assert_eq!(&grid.to_string(), grid_source);
 
@@ -407,15 +407,15 @@ mod test {
     fn bad_character() {
         assert_eq!(
             "line 2: unexpected character: -",
-            &"ABCDE\nA C -".parse::<Grid>().unwrap_err().to_string(),
+            &"ABCDE\nA C -".parse::<LetterGrid>().unwrap_err().to_string(),
         );
         assert_eq!(
             "line 2: unexpected character: B",
-            &"ABCDE\nABCDE".parse::<Grid>().unwrap_err().to_string(),
+            &"ABCDE\nABCDE".parse::<LetterGrid>().unwrap_err().to_string(),
         );
         assert_eq!(
             "line 1: unexpected character: U+0009",
-            &"ABCD\t".parse::<Grid>().unwrap_err().to_string(),
+            &"ABCD\t".parse::<LetterGrid>().unwrap_err().to_string(),
         );
     }
 
@@ -423,7 +423,7 @@ mod test {
     fn bad_lowercase() {
         assert_eq!(
             "line 1: letter doesn’t have simple case: İ",
-            &"ABCDİ".parse::<Grid>().unwrap_err().to_string(),
+            &"ABCDİ".parse::<LetterGrid>().unwrap_err().to_string(),
         );
     }
 
@@ -431,7 +431,7 @@ mod test {
     fn line_too_long() {
         assert_eq!(
             "line 1: line too long",
-            &"ABCDEF".parse::<Grid>().unwrap_err().to_string(),
+            &"ABCDEF".parse::<LetterGrid>().unwrap_err().to_string(),
         );
     }
 
@@ -439,7 +439,7 @@ mod test {
     fn line_too_short() {
         assert_eq!(
             "line 1: line too short",
-            &"ABCD".parse::<Grid>().unwrap_err().to_string(),
+            &"ABCD".parse::<LetterGrid>().unwrap_err().to_string(),
         );
     }
 
@@ -453,7 +453,7 @@ mod test {
               N O P\n\
               QRSTU\n\
               poop"
-                .parse::<Grid>().unwrap_err().to_string(),
+                .parse::<LetterGrid>().unwrap_err().to_string(),
         );
     }
 
@@ -465,7 +465,7 @@ mod test {
               F G H\n\
               IJKLM\n\
               N O P"
-                .parse::<Grid>().unwrap_err().to_string(),
+                .parse::<LetterGrid>().unwrap_err().to_string(),
         );
     }
 }

@@ -16,7 +16,7 @@
 
 use std::fmt;
 
-use super::grid::{Grid, LetterState, WORD_LENGTH, N_WORDS_ON_AXIS};
+use super::letter_grid::{LetterGrid, LetterState, WORD_LENGTH, N_WORDS_ON_AXIS};
 
 #[derive(Debug, Clone)]
 pub struct Word {
@@ -72,7 +72,7 @@ impl fmt::Display for WordGrid {
 }
 
 impl WordGrid {
-    pub fn new(original_grid: &Grid) -> WordGrid {
+    pub fn new(original_grid: &LetterGrid) -> WordGrid {
         let mut grid = WordGrid {
             words: [DEFAULT_WORD; N_WORDS_ON_AXIS * 2],
             spare_letters: Vec::new(),

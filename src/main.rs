@@ -17,7 +17,7 @@
 mod permute;
 mod dictionary;
 mod word_solver;
-mod grid;
+mod letter_grid;
 mod word_grid;
 mod grid_solver;
 mod pairs;
@@ -27,23 +27,24 @@ use std::process::ExitCode;
 use std::io;
 use std::ffi::OsStr;
 use dictionary::Dictionary;
+use letter_grid::{LetterGrid, N_WORDS_ON_AXIS, WORD_LENGTH};
 
 fn load_dictionary(filename: &OsStr) -> Result<Dictionary, io::Error> {
     std::fs::read(filename).map(|data| Dictionary::new(data.into_boxed_slice()))
 }
 
-fn grid_to_array(grid: &grid::Grid) -> Vec<char> {
+fn grid_to_array(grid: &LetterGrid) -> Vec<char> {
     let mut letters = Vec::new();
 
-    for word_num in 0..grid::N_WORDS_ON_AXIS {
-        for letter_num in 0..grid::WORD_LENGTH {
+    for word_num in 0..N_WORDS_ON_AXIS {
+        for letter_num in 0..WORD_LENGTH {
             letters.push(grid.horizontal_letter(word_num, letter_num).value);
         }
 
         let letter_num = word_num * 2 + 1;
 
-        if letter_num < grid::WORD_LENGTH {
-            for word_num in 0..grid::N_WORDS_ON_AXIS {
+        if letter_num < WORD_LENGTH {
+            for word_num in 0..N_WORDS_ON_AXIS {
                 letters.push(grid.vertical_letter(word_num, letter_num).value);
             }
         }
@@ -55,17 +56,17 @@ fn grid_to_array(grid: &grid::Grid) -> Vec<char> {
 fn word_grid_to_array(grid: &word_grid::WordGrid) -> Vec<char> {
     let mut letters = Vec::new();
 
-    for word_num in 0..grid::N_WORDS_ON_AXIS {
+    for word_num in 0..N_WORDS_ON_AXIS {
         let word = &grid.horizontal_words()[word_num];
 
-        for letter_num in 0..grid::WORD_LENGTH {
+        for letter_num in 0..WORD_LENGTH {
             letters.push(word.letters[letter_num].unwrap());
         }
 
         let letter_num = word_num * 2 + 1;
 
-        if letter_num < grid::WORD_LENGTH {
-            for word_num in 0..grid::N_WORDS_ON_AXIS {
+        if letter_num < WORD_LENGTH {
+            for word_num in 0..N_WORDS_ON_AXIS {
                 let word = &grid.vertical_words()[word_num];
                 letters.push(word.letters[letter_num].unwrap());
             }
@@ -76,7 +77,7 @@ fn word_grid_to_array(grid: &word_grid::WordGrid) -> Vec<char> {
 }
 
 fn run_grid(dictionary: &Dictionary, grid_buf: &str) -> bool {
-    let grid = match grid_buf.parse::<grid::Grid>() {
+    let grid = match grid_buf.parse::<LetterGrid>() {
         Err(e) => {
             eprintln!("{}", e);
             return false;
