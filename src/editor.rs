@@ -777,6 +777,8 @@ impl Editor {
             ncurses::KEY_BACKSPACE => self.backspace(),
             ncurses::KEY_NPAGE => self.move_between_puzzles(1),
             ncurses::KEY_PPAGE => self.move_between_puzzles(-1),
+            ncurses::KEY_HOME => self.set_current_puzzle(0),
+            ncurses::KEY_END => self.set_current_puzzle(self.puzzles.len() - 1),
             _ => (),
         }
     }
