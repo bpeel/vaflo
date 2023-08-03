@@ -30,6 +30,8 @@ h1 {
     aspect-ratio: 1 / 1;
     container-type: size;
     gap: 2%;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-rows: repeat(5, minmax(0, 1fr));
 }
 
 .letter {
