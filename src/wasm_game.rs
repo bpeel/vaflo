@@ -229,9 +229,10 @@ struct Drag {
 
 struct Vaflo {
     context: Context,
-    mousedown_closure: Option<Closure::<dyn Fn(JsValue)>>,
-    mouseup_closure: Option<Closure::<dyn Fn(JsValue)>>,
-    mousemove_closure: Option<Closure::<dyn Fn(JsValue)>>,
+    pointerdown_closure: Option<Closure::<dyn Fn(JsValue)>>,
+    pointerup_closure: Option<Closure::<dyn Fn(JsValue)>>,
+    pointermove_closure: Option<Closure::<dyn Fn(JsValue)>>,
+    pointercancel_closure: Option<Closure::<dyn Fn(JsValue)>>,
     puzzles: Vec<Grid>,
     game_grid: web_sys::HtmlElement,
     letters: Vec<web_sys::HtmlElement>,
@@ -254,9 +255,10 @@ impl Vaflo {
 
         let mut vaflo = Box::new(Vaflo {
             context,
-            mousedown_closure: None,
-            mouseup_closure: None,
-            mousemove_closure: None,
+            pointerdown_closure: None,
+            pointerup_closure: None,
+            pointermove_closure: None,
+            pointercancel_closure: None,
             puzzles,
             game_grid,
             letters: Vec::with_capacity(WORD_LENGTH * WORD_LENGTH),
@@ -279,50 +281,65 @@ impl Vaflo {
     fn create_closures(&mut self) {
         let vaflo_pointer = self as *mut Vaflo;
 
-        let mousedown_closure = Closure::<dyn Fn(JsValue)>::new(
+        let pointerdown_closure = Closure::<dyn Fn(JsValue)>::new(
             move |event: JsValue| {
                 let vaflo = unsafe { &mut *vaflo_pointer };
-                let event: web_sys::MouseEvent = event.dyn_into().unwrap();
-                vaflo.handle_mousedown_event(event);
+                let event: web_sys::PointerEvent = event.dyn_into().unwrap();
+                vaflo.handle_pointerdown_event(event);
             }
         );
 
         let _ = self.context.document.add_event_listener_with_callback(
-            "mousedown",
-            mousedown_closure.as_ref().unchecked_ref(),
+            "pointerdown",
+            pointerdown_closure.as_ref().unchecked_ref(),
         );
 
-        self.mousedown_closure = Some(mousedown_closure);
+        self.pointerdown_closure = Some(pointerdown_closure);
 
-        let mouseup_closure = Closure::<dyn Fn(JsValue)>::new(
+        let pointerup_closure = Closure::<dyn Fn(JsValue)>::new(
             move |event: JsValue| {
                 let vaflo = unsafe { &mut *vaflo_pointer };
-                let event: web_sys::MouseEvent = event.dyn_into().unwrap();
-                vaflo.handle_mouseup_event(event);
+                let event: web_sys::PointerEvent = event.dyn_into().unwrap();
+                vaflo.handle_pointerup_event(event);
             }
         );
 
         let _ = self.context.document.add_event_listener_with_callback(
-            "mouseup",
-            mouseup_closure.as_ref().unchecked_ref(),
+            "pointerup",
+            pointerup_closure.as_ref().unchecked_ref(),
         );
 
-        self.mouseup_closure = Some(mouseup_closure);
+        self.pointerup_closure = Some(pointerup_closure);
 
-        let mousemove_closure = Closure::<dyn Fn(JsValue)>::new(
+        let pointermove_closure = Closure::<dyn Fn(JsValue)>::new(
             move |event: JsValue| {
                 let vaflo = unsafe { &mut *vaflo_pointer };
-                let event: web_sys::MouseEvent = event.dyn_into().unwrap();
-                vaflo.handle_mousemove_event(event);
+                let event: web_sys::PointerEvent = event.dyn_into().unwrap();
+                vaflo.handle_pointermove_event(event);
             }
         );
 
         let _ = self.context.document.add_event_listener_with_callback(
-            "mousemove",
-            mousemove_closure.as_ref().unchecked_ref(),
+            "pointermove",
+            pointermove_closure.as_ref().unchecked_ref(),
         );
 
-        self.mousemove_closure = Some(mousemove_closure);
+        self.pointermove_closure = Some(pointermove_closure);
+
+        let pointercancel_closure = Closure::<dyn Fn(JsValue)>::new(
+            move |event: JsValue| {
+                let vaflo = unsafe { &mut *vaflo_pointer };
+                let event: web_sys::PointerEvent = event.dyn_into().unwrap();
+                vaflo.handle_pointercancel_event(event);
+            }
+        );
+
+        let _ = self.context.document.add_event_listener_with_callback(
+            "pointercancel",
+            pointercancel_closure.as_ref().unchecked_ref(),
+        );
+
+        self.pointercancel_closure = Some(pointercancel_closure);
     }
 
     fn create_letters(&mut self) -> Result<(), String> {
@@ -400,7 +417,7 @@ impl Vaflo {
         let _ = style.set_property("transform", &translation);
     }
 
-    fn update_drag_position(&self, event: &web_sys::MouseEvent) {
+    fn update_drag_position(&self, event: &web_sys::PointerEvent) {
         let drag = self.drag.as_ref().unwrap();
 
         self.set_letter_translation(
@@ -513,8 +530,8 @@ impl Vaflo {
         self.slide_letter(position_b);
     }
 
-    fn handle_mousedown_event(&mut self, event: web_sys::MouseEvent) {
-        if event.which() != 1 || self.drag.is_some() {
+    fn handle_pointerdown_event(&mut self, event: web_sys::PointerEvent) {
+        if !event.is_primary() || event.button() != 0 || self.drag.is_some() {
             return;
         }
 
@@ -546,8 +563,8 @@ impl Vaflo {
         self.update_drag_position(&event);
     }
 
-    fn handle_mouseup_event(&mut self, event: web_sys::MouseEvent) {
-        if event.which() != 1 {
+    fn handle_pointerup_event(&mut self, event: web_sys::PointerEvent) {
+        if !event.is_primary() {
             return;
         }
 
@@ -581,11 +598,24 @@ impl Vaflo {
         }
     }
 
-    fn handle_mousemove_event(&mut self, event: web_sys::MouseEvent) {
-        if self.drag.is_some() {
+    fn handle_pointermove_event(&mut self, event: web_sys::PointerEvent) {
+        if event.is_primary() && self.drag.is_some() {
             event.prevent_default();
             self.update_drag_position(&event);
         }
+    }
+
+    fn handle_pointercancel_event(&mut self, event: web_sys::PointerEvent) {
+        if !event.is_primary() {
+            return;
+        }
+
+        let Some(drag) = self.drag.take()
+        else {
+            return;
+        };
+
+        self.slide_letter(drag.position);
     }
 
     fn update_square_letter(&self, position: usize) {

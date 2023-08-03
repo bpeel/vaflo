@@ -40,6 +40,7 @@ features = [
          "HtmlElement",
          "Text",
          "MouseEvent",
+         "PointerEvent",
          "Event",
          "EventTarget",
          "DomRect",
