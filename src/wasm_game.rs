@@ -290,26 +290,26 @@ impl Vaflo {
         Ok(Box::new(vaflo))
     }
 
+    fn update_square_letter(&self, position: usize) {
+        let element = &self.letters[position];
+
+        while let Some(child) = element.first_child() {
+            let _ = element.remove_child(&child);
+        }
+
+        let mut letter_text = [0u8; 4];
+        let letter_index = self.grid.puzzle.squares[position].position;
+        let letter = self.grid.solution.letters[letter_index];
+
+        let text = self.context.document.create_text_node(
+            letter.encode_utf8(&mut letter_text)
+        );
+        let _ = element.append_with_node_1(&text);
+    }
+
     fn update_square_letters(&self) {
-        for (position, letter) in self
-            .grid
-            .solution
-            .letters
-            .iter()
-            .enumerate()
-        {
-            let element = &self.letters[position];
-
-            while let Some(child) = element.first_child() {
-                let _ = element.remove_child(&child);
-            }
-
-            let mut letter_text = [0u8; 4];
-
-            let text = self.context.document.create_text_node(
-                letter.encode_utf8(&mut letter_text)
-            );
-            let _ = element.append_with_node_1(&text);
+        for position in 0..WORD_LENGTH * WORD_LENGTH {
+            self.update_square_letter(position);
         }
     }
 
