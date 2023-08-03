@@ -39,6 +39,10 @@ features = [
          "Response",
          "HtmlElement",
          "Text",
+         "MouseEvent",
+         "Event",
+         "EventTarget",
+         "DomRect",
 ]
 
 [target."cfg(target_arch = \"wasm32\")".dependencies.js_sys]
