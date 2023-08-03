@@ -29,19 +29,27 @@ h1 {
     width: 70%;
     aspect-ratio: 1 / 1;
     container-type: size;
+    gap: 2%;
 }
 
 .letter {
-    margin: 1cqh;
     padding-top: 2cqh;
     font-size: 12cqh;
     text-align: center;
     border-radius: 3cqh;
-    border-top-style: none;
-    border-left-style: none;
-    border-right-style: none;
-    border-bottom-style: solid;
-    border-width: 2cqh;
+    border-style: solid;
+    border-top-width: 0.5cqh;
+    border-left-width: 0.5cqh;
+    border-right-width: 0.5cqh;
+    border-bottom-width: 2cqh;
+}
+
+.letter.wrong-position:hover, .letter.wrong:hover {
+    cursor: grab;
+}
+
+.letter.correct:hover {
+    cursor: default;
 }
 
 .letter.correct {
