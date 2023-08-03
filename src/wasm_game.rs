@@ -235,10 +235,29 @@ impl Vaflo {
             return Err("failed to get game grid".to_string());
         };
 
-        let mut letters = Vec::with_capacity(WORD_LENGTH * WORD_LENGTH);
+        let grid = puzzles[0].clone();
+
+        let mut vaflo = Vaflo {
+            context,
+            puzzles,
+            game_grid,
+            letters: Vec::with_capacity(WORD_LENGTH * WORD_LENGTH),
+            grid,
+        };
+
+        vaflo.create_letters();
+        vaflo.update_square_letters();
+        vaflo.update_square_states();
+        vaflo.show_grid();
+
+        Ok(Box::new(vaflo))
+    }
+
+    fn create_letters(&mut self) -> Result<(), String> {
+        let letters = &mut self.letters;
 
         for position in 0..WORD_LENGTH * WORD_LENGTH {
-            let Some(element) = context.document.create_element("div").ok()
+            let Some(element) = self.context.document.create_element("div").ok()
                 .and_then(|c| c.dyn_into::<web_sys::HtmlElement>().ok())
             else {
                 return Err("failed to create letter element".to_string());
@@ -266,28 +285,17 @@ impl Vaflo {
                 ),
             );
 
-            let _ = game_grid.append_with_node_1(&element);
+            let _ = self.game_grid.append_with_node_1(&element);
 
             letters.push(element);
         }
 
-        let _ = context.message.style().set_property("display", "none");
-        let _ = game_grid.style().set_property("display", "grid");
+        Ok(())
+    }
 
-        let grid = puzzles[0].clone();
-
-        let vaflo = Vaflo {
-            context,
-            puzzles,
-            game_grid,
-            letters,
-            grid,
-        };
-
-        vaflo.update_square_letters();
-        vaflo.update_square_states();
-
-        Ok(Box::new(vaflo))
+    fn show_grid(&self) {
+        let _ = self.context.message.style().set_property("display", "none");
+        let _ = self.game_grid.style().set_property("display", "grid");
     }
 
     fn update_square_letter(&self, position: usize) {
