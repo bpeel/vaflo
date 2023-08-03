@@ -19,6 +19,8 @@ use web_sys::console;
 use super::grid;
 use grid::{Grid, WORD_LENGTH, PuzzleSquareState};
 
+const STOP_ANIMATIONS_DELAY: i32 = 250;
+
 fn show_error(message: &str) {
     console::log_1(&message.into());
 
@@ -235,6 +237,9 @@ struct Vaflo {
     letters: Vec<web_sys::HtmlElement>,
     grid: Grid,
     drag: Option<Drag>,
+    stop_animations_closure: Option<Closure::<dyn Fn()>>,
+    stop_animations_queued: bool,
+    animated_letters: Vec<usize>,
 }
 
 impl Vaflo {
@@ -257,6 +262,9 @@ impl Vaflo {
             letters: Vec::with_capacity(WORD_LENGTH * WORD_LENGTH),
             grid,
             drag: None,
+            stop_animations_closure: None,
+            stop_animations_queued: false,
+            animated_letters: Vec::new(),
         });
 
         vaflo.create_closures();
@@ -386,19 +394,30 @@ impl Vaflo {
         None
     }
 
-    fn update_drag_position(&self, event: &web_sys::MouseEvent) {
-        let drag = self.drag.as_ref().unwrap();
-
-        let x = event.client_x() - drag.start_x;
-        let y = event.client_y() - drag.start_y;
+    fn set_letter_translation(&self, position: usize, x: f64, y: f64) {
         let translation = format!("translate({}px, {}px)", x, y);
-        let style = self.letters[drag.position].style();
+        let style = self.letters[position].style();
         let _ = style.set_property("transform", &translation);
     }
 
-    fn find_letter_for_position(&self, x: f64, y: f64) -> Option<usize> {
+    fn update_drag_position(&self, event: &web_sys::MouseEvent) {
+        let drag = self.drag.as_ref().unwrap();
+
+        self.set_letter_translation(
+            drag.position,
+            (event.client_x() - drag.start_x) as f64,
+            (event.client_y() - drag.start_y) as f64,
+        );
+    }
+
+    fn find_letter_for_position(
+        &self,
+        skip: usize,
+        x: f64,
+        y: f64,
+    ) -> Option<usize> {
         for position in 0..WORD_LENGTH * WORD_LENGTH {
-            if grid::is_gap_position(position) {
+            if skip == position || grid::is_gap_position(position) {
                 continue;
             }
 
@@ -418,12 +437,80 @@ impl Vaflo {
         None
     }
 
+    fn stop_animations(&mut self) {
+        for &position in self.animated_letters.iter() {
+            let style = self.letters[position].style();
+            let _ = style.set_property("transform", "none");
+            self.set_square_class(position, None);
+        }
+        self.animated_letters.clear();
+    }
+
+    fn slide_letter(&mut self, position: usize) {
+        self.set_square_class(position, Some("sliding"));
+        self.animated_letters.push(position);
+
+        if !self.stop_animations_queued {
+            let vaflo_pointer = self as *mut Vaflo;
+
+            let closure = self.stop_animations_closure.get_or_insert_with(|| {
+                Closure::<dyn Fn()>::new(move || {
+                    let vaflo = unsafe { &mut *vaflo_pointer };
+                    vaflo.stop_animations_queued = false;
+                    vaflo.stop_animations();
+                })
+            });
+
+            match self
+                .context
+                .window
+                .set_timeout_with_callback_and_timeout_and_arguments_0(
+                    closure.as_ref().unchecked_ref(),
+                    STOP_ANIMATIONS_DELAY,
+                )
+            {
+                Ok(_) => {
+                    self.stop_animations_queued = true;
+                },
+                Err(_) => {
+                    console::log_1(&"Error setting timeout".into());
+                },
+            }
+        }
+    }
+
     fn swap_letters(&mut self, position_a: usize, position_b: usize) {
         self.grid.puzzle.squares.swap(position_a, position_b);
         self.grid.update_square_states();
         self.update_square_states();
         self.update_square_letter(position_a);
         self.update_square_letter(position_b);
+
+        let rect_a = self.letters[position_a].get_bounding_client_rect();
+        let rect_b = self.letters[position_b].get_bounding_client_rect();
+
+        // Remove any existing transform so we can set the transform
+        // based on the origin
+        let a_style = self.letters[position_a].style();
+        let _ = a_style.set_property("transform", "none");
+        let b_style = self.letters[position_b].style();
+        let _ = b_style.set_property("transform", "none");
+        let base_rect_a = self.letters[position_a].get_bounding_client_rect();
+        let base_rect_b = self.letters[position_b].get_bounding_client_rect();
+
+        self.set_letter_translation(
+            position_a,
+            rect_b.x() - base_rect_a.x(),
+            rect_b.y() - base_rect_a.y(),
+        );
+        self.set_letter_translation(
+            position_b,
+            rect_a.x() - base_rect_b.x(),
+            rect_a.y() - base_rect_b.y(),
+        );
+
+        self.slide_letter(position_a);
+        self.slide_letter(position_b);
     }
 
     fn handle_mousedown_event(&mut self, event: web_sys::MouseEvent) {
@@ -438,13 +525,17 @@ impl Vaflo {
 
         event.prevent_default();
 
+        if !self.animated_letters.is_empty() {
+            return;
+        }
+
         match self.grid.puzzle.squares[position].state {
             PuzzleSquareState::Correct => return,
             PuzzleSquareState::Wrong => (),
             PuzzleSquareState::WrongPosition => (),
         }
 
-        self.set_square_class(position, true);
+        self.set_square_class(position, Some("dragging"));
 
         self.drag = Some(Drag {
             position,
@@ -466,21 +557,20 @@ impl Vaflo {
         let dragged_element = &self.letters[drag.position];
         let client_rect = dragged_element.get_bounding_client_rect();
 
-        self.set_square_class(drag.position, false);
-        let _ = dragged_element.style().set_property("transform", "none");
-
         if let Some(target_position) = self.find_letter_for_position(
+            drag.position,
             client_rect.x() + client_rect.width() / 2.0,
             client_rect.y() + client_rect.height() / 2.0,
-        ) {
-            if target_position != drag.position
+        ).filter(|&target_position| {
+            target_position != drag.position
                 && !matches!(
                     self.grid.puzzle.squares[target_position].state,
                     PuzzleSquareState::Correct,
                 )
-            {
-                self.swap_letters(target_position, drag.position);
-            }
+        }) {
+            self.swap_letters(target_position, drag.position);
+        } else {
+            self.slide_letter(drag.position);
         }
     }
 
@@ -514,7 +604,7 @@ impl Vaflo {
         }
     }
 
-    fn set_square_class(&self, position: usize, dragging: bool) {
+    fn set_square_class(&self, position: usize, extra: Option<&str>) {
         let element = &self.letters[position];
 
         let square = &self.grid.puzzle.squares[position];
@@ -525,10 +615,10 @@ impl Vaflo {
             PuzzleSquareState::Wrong => "letter wrong",
         };
 
-        if dragging {
+        if let Some(extra) = extra {
             let _ = element.set_attribute(
                 "class",
-                &format!("{} dragging", class),
+                &format!("{} {}", class, extra),
             );
         } else {
             let _ = element.set_attribute("class", class);
@@ -541,7 +631,7 @@ impl Vaflo {
                 continue;
             }
 
-            self.set_square_class(position, false);
+            self.set_square_class(position, None);
         }
     }
 }

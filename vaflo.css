@@ -72,6 +72,17 @@ h1 {
     color: black;
 }
 
+.letter.sliding {
+    animation: 0.25s ease-in 0s slide;
+    animation-fill-mode: forwards;
+}
+
+@keyframes slide {
+    to {
+        transform: translate(0px, 0px);
+    }
+}
+
 @media only all and (max-width: 45em) {
     #content {
         position: absolute;
