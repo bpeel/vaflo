@@ -514,7 +514,7 @@ impl Vaflo {
     }
 
     fn handle_mousedown_event(&mut self, event: web_sys::MouseEvent) {
-        if self.drag.is_some() {
+        if event.which() != 1 || self.drag.is_some() {
             return;
         }
 
@@ -547,6 +547,10 @@ impl Vaflo {
     }
 
     fn handle_mouseup_event(&mut self, event: web_sys::MouseEvent) {
+        if event.which() != 1 {
+            return;
+        }
+
         let Some(drag) = self.drag.take()
         else {
             return;
