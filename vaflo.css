@@ -33,6 +33,7 @@ h1 {
     gap: 2%;
     grid-template-columns: repeat(5, minmax(0, 1fr));
     grid-template-rows: repeat(5, minmax(0, 1fr));
+    touch-action: none;
 }
 
 .letter {
