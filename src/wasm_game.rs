@@ -397,6 +397,36 @@ impl Vaflo {
         let _ = style.set_property("top", &format!("{}px", top));
     }
 
+    fn find_letter_for_position(&self, x: f64, y: f64) -> Option<usize> {
+        for position in 0..WORD_LENGTH * WORD_LENGTH {
+            if grid::is_gap_position(position) {
+                continue;
+            }
+
+            let client_rect = self.letters[position].get_bounding_client_rect();
+            let client_x = client_rect.x();
+            let client_y = client_rect.y();
+
+            if x >= client_x
+                && y >= client_y
+                && x < client_x + client_rect.width()
+                && y < client_y + client_rect.height()
+            {
+                return Some(position);
+            }
+        }
+
+        None
+    }
+
+    fn swap_letters(&mut self, position_a: usize, position_b: usize) {
+        self.grid.puzzle.squares.swap(position_a, position_b);
+        self.grid.update_square_states();
+        self.update_square_states();
+        self.update_square_letter(position_a);
+        self.update_square_letter(position_b);
+    }
+
     fn handle_mousedown_event(&mut self, event: web_sys::MouseEvent) {
         if self.drag.is_some() {
             return;
@@ -434,7 +464,24 @@ impl Vaflo {
 
         event.prevent_default();
 
+        let dragged_element = &self.letters[drag.position];
+        let client_rect = dragged_element.get_bounding_client_rect();
+
         self.set_square_class(drag.position, false);
+
+        if let Some(target_position) = self.find_letter_for_position(
+            client_rect.x() + client_rect.width() / 2.0,
+            client_rect.y() + client_rect.height() / 2.0,
+        ) {
+            if target_position != drag.position
+                && !matches!(
+                    self.grid.puzzle.squares[target_position].state,
+                    PuzzleSquareState::Correct,
+                )
+            {
+                self.swap_letters(target_position, drag.position);
+            }
+        }
     }
 
     fn handle_mousemove_event(&mut self, event: web_sys::MouseEvent) {
