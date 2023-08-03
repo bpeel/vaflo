@@ -389,12 +389,11 @@ impl Vaflo {
     fn update_drag_position(&self, event: &web_sys::MouseEvent) {
         let drag = self.drag.as_ref().unwrap();
 
-        let left = event.client_x() - drag.start_x;
-        let top = event.client_y() - drag.start_y;
+        let x = event.client_x() - drag.start_x;
+        let y = event.client_y() - drag.start_y;
+        let translation = format!("translate({}px, {}px)", x, y);
         let style = self.letters[drag.position].style();
-
-        let _ = style.set_property("left", &format!("{}px", left));
-        let _ = style.set_property("top", &format!("{}px", top));
+        let _ = style.set_property("transform", &translation);
     }
 
     fn find_letter_for_position(&self, x: f64, y: f64) -> Option<usize> {
@@ -468,6 +467,7 @@ impl Vaflo {
         let client_rect = dragged_element.get_bounding_client_rect();
 
         self.set_square_class(drag.position, false);
+        let _ = dragged_element.style().set_property("transform", "none");
 
         if let Some(target_position) = self.find_letter_for_position(
             client_rect.x() + client_rect.width() / 2.0,

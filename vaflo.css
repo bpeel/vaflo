@@ -72,11 +72,6 @@ h1 {
     color: black;
 }
 
-.letter.dragging {
-    position: relative;
-    z-index: 10;
-}
-
 @media only all and (max-width: 45em) {
     #content {
         position: absolute;
