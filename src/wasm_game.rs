@@ -569,6 +569,9 @@ impl Vaflo {
                 )
         }) {
             self.swap_letters(target_position, drag.position);
+            // Make sure the dragging letter (which is now the target
+            // letter) is on top
+            self.move_letter_to_top(target_position);
         } else {
             self.slide_letter(drag.position);
         }
@@ -633,6 +636,10 @@ impl Vaflo {
 
             self.set_square_class(position, None);
         }
+    }
+
+    fn move_letter_to_top(&self, position: usize) {
+        let _ = self.game_grid.append_child(&self.letters[position]);
     }
 }
 
