@@ -1,4 +1,4 @@
-// Waffle Solve
+// Vaflo – A word game in Esperanto
 // Copyright (C) 2023  Neil Roberts
 //
 // This program is free software: you can redistribute it and/or modify
