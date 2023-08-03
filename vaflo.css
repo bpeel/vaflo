@@ -7,7 +7,7 @@ body {
 #content {
     display: flex;
     flex-direction: column;
-    background-color: #eeeeee;
+    background-color: #fff;
 }
 
 h1 {
