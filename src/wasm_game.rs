@@ -245,7 +245,7 @@ impl Vaflo {
             grid,
         };
 
-        vaflo.create_letters();
+        vaflo.create_letters()?;
         vaflo.update_square_letters();
         vaflo.update_square_states();
         vaflo.show_grid();
