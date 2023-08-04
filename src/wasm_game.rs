@@ -20,6 +20,7 @@ use super::grid;
 use grid::{Grid, WORD_LENGTH, PuzzleSquareState};
 
 const STOP_ANIMATIONS_DELAY: i32 = 250;
+const MAXIMUM_SWAPS: u32 = 15;
 
 fn show_error(message: &str) {
     console::log_1(&message.into());
@@ -234,21 +235,38 @@ struct Vaflo {
     pointermove_closure: Option<Closure::<dyn Fn(JsValue)>>,
     pointercancel_closure: Option<Closure::<dyn Fn(JsValue)>>,
     puzzles: Vec<Grid>,
+    game_contents: web_sys::HtmlElement,
     game_grid: web_sys::HtmlElement,
     letters: Vec<web_sys::HtmlElement>,
+    swaps_remaining_message: web_sys::HtmlElement,
     grid: Grid,
     drag: Option<Drag>,
     stop_animations_closure: Option<Closure::<dyn Fn()>>,
     stop_animations_queued: bool,
     animated_letters: Vec<usize>,
+    swaps_remaining: u32,
 }
 
 impl Vaflo {
     fn new(context: Context, puzzles: Vec<Grid>) -> Result<Box<Vaflo>, String> {
+        let Some(game_contents) =
+            context.document.get_element_by_id("game-contents")
+            .and_then(|c| c.dyn_into::<web_sys::HtmlElement>().ok())
+        else {
+            return Err("failed to get game contents".to_string());
+        };
+
         let Some(game_grid) = context.document.get_element_by_id("game-grid")
             .and_then(|c| c.dyn_into::<web_sys::HtmlElement>().ok())
         else {
             return Err("failed to get game grid".to_string());
+        };
+
+        let Some(swaps_remaining_message) =
+            context.document.get_element_by_id("swaps-remaining")
+            .and_then(|c| c.dyn_into::<web_sys::HtmlElement>().ok())
+        else {
+            return Err("failed to get swaps remaining message".to_string());
         };
 
         let grid = puzzles[0].clone();
@@ -260,20 +278,24 @@ impl Vaflo {
             pointermove_closure: None,
             pointercancel_closure: None,
             puzzles,
+            game_contents,
             game_grid,
+            swaps_remaining_message,
             letters: Vec::with_capacity(WORD_LENGTH * WORD_LENGTH),
             grid,
             drag: None,
             stop_animations_closure: None,
             stop_animations_queued: false,
             animated_letters: Vec::new(),
+            swaps_remaining: MAXIMUM_SWAPS,
         });
 
         vaflo.create_closures();
         vaflo.create_letters()?;
         vaflo.update_square_letters();
         vaflo.update_square_states();
-        vaflo.show_grid();
+        vaflo.update_swaps_remaining();
+        vaflo.show_game_contents();
 
         Ok(vaflo)
     }
@@ -382,9 +404,9 @@ impl Vaflo {
         Ok(())
     }
 
-    fn show_grid(&self) {
+    fn show_game_contents(&self) {
         let _ = self.context.message.style().set_property("display", "none");
-        let _ = self.game_grid.style().set_property("display", "grid");
+        let _ = self.game_contents.style().set_property("display", "block");
     }
 
     fn position_for_event(&self, event: &web_sys::Event) -> Option<usize> {
@@ -528,6 +550,9 @@ impl Vaflo {
 
         self.slide_letter(position_a);
         self.slide_letter(position_b);
+
+        self.swaps_remaining = self.swaps_remaining.saturating_sub(1);
+        self.update_swaps_remaining();
     }
 
     fn handle_pointerdown_event(&mut self, event: web_sys::PointerEvent) {
@@ -618,21 +643,22 @@ impl Vaflo {
         self.slide_letter(drag.position);
     }
 
-    fn update_square_letter(&self, position: usize) {
-        let element = &self.letters[position];
-
+    fn set_element_text(&self, element: &web_sys::HtmlElement, text: &str) {
         while let Some(child) = element.first_child() {
             let _ = element.remove_child(&child);
         }
 
+        let text = self.context.document.create_text_node(text);
+        let _ = element.append_with_node_1(&text);
+    }
+
+    fn update_square_letter(&self, position: usize) {
+        let element = &self.letters[position];
+
         let mut letter_text = [0u8; 4];
         let letter_index = self.grid.puzzle.squares[position].position;
         let letter = self.grid.solution.letters[letter_index];
-
-        let text = self.context.document.create_text_node(
-            letter.encode_utf8(&mut letter_text)
-        );
-        let _ = element.append_with_node_1(&text);
+        self.set_element_text(element, letter.encode_utf8(&mut letter_text));
     }
 
     fn update_square_letters(&self) {
@@ -670,6 +696,16 @@ impl Vaflo {
 
             self.set_square_class(position, None);
         }
+    }
+
+    fn update_swaps_remaining(&self) {
+        let text = if self.swaps_remaining == 1 {
+            "Restas 1 interŝanĝo".to_string()
+        } else {
+            format!("Restas {} interŝanĝoj", self.swaps_remaining)
+        };
+
+        self.set_element_text(&self.swaps_remaining_message, &text);
     }
 
     fn move_letter_to_top(&self, position: usize) {
