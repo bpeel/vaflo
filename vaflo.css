@@ -34,6 +34,9 @@ h1 {
     gap: 2%;
     grid-template-columns: repeat(5, minmax(0, 1fr));
     grid-template-rows: repeat(5, minmax(0, 1fr));
+}
+
+#game-grid.playing {
     touch-action: none;
 }
 
@@ -49,30 +52,43 @@ h1 {
     border-bottom-width: 2cqh;
 }
 
-.letter.wrong-position:hover, .letter.wrong:hover {
+#game-grid.playing .letter.wrong-position:hover,
+#game-grid.playing .letter.wrong:hover {
     cursor: grab;
 }
 
-.letter.correct:hover {
+.letter:hover {
     cursor: default;
 }
 
-.letter.correct {
+#game-grid.playing .letter.correct, #game-grid.won .letter {
     border-color: #649e53;
     background-color: #6fb05c;
     color: white;
 }
 
-.letter.wrong-position {
+#game-grid.playing .letter.wrong-position {
     border-color: #d1a734;
     background-color: #e9ba3a;
     color: white;
 }
 
-.letter.wrong {
+#game-grid.playing .letter.wrong {
     border-color: #d5d7d8;
     background-color: #edeff1;
     color: black;
+}
+
+#game-grid.lost .letter.wrong-position, #game-grid.lost .letter.wrong {
+    color: white;
+    background-color: #1a1a1b;
+    border-color: #1a1a1b;
+}
+
+#game-grid.lost .letter.correct {
+    color: white;
+    background-color: #454747;
+    border-color: #454747;
 }
 
 .letter.sliding {

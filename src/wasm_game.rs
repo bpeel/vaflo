@@ -228,6 +228,13 @@ struct Drag {
     start_y: i32,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum GameState {
+    Playing,
+    Won,
+    Lost,
+}
+
 struct Vaflo {
     context: Context,
     pointerdown_closure: Option<Closure::<dyn Fn(JsValue)>>,
@@ -239,6 +246,7 @@ struct Vaflo {
     game_grid: web_sys::HtmlElement,
     letters: Vec<web_sys::HtmlElement>,
     swaps_remaining_message: web_sys::HtmlElement,
+    game_state: GameState,
     grid: Grid,
     drag: Option<Drag>,
     stop_animations_closure: Option<Closure::<dyn Fn()>>,
@@ -282,6 +290,7 @@ impl Vaflo {
             game_grid,
             swaps_remaining_message,
             letters: Vec::with_capacity(WORD_LENGTH * WORD_LENGTH),
+            game_state: GameState::Playing,
             grid,
             drag: None,
             stop_animations_closure: None,
@@ -292,6 +301,7 @@ impl Vaflo {
 
         vaflo.create_closures();
         vaflo.create_letters()?;
+        vaflo.update_game_state();
         vaflo.update_square_letters();
         vaflo.update_square_states();
         vaflo.update_swaps_remaining();
@@ -552,11 +562,22 @@ impl Vaflo {
         self.slide_letter(position_b);
 
         self.swaps_remaining = self.swaps_remaining.saturating_sub(1);
-        self.update_swaps_remaining();
+
+        if self.grid.puzzle.is_solved() {
+            self.set_won_state();
+        } else if self.swaps_remaining == 0 {
+            self.set_lost_state();
+        } else {
+            self.update_swaps_remaining();
+        }
     }
 
     fn handle_pointerdown_event(&mut self, event: web_sys::PointerEvent) {
-        if !event.is_primary() || event.button() != 0 || self.drag.is_some() {
+        if !event.is_primary()
+            || event.button() != 0
+            || self.drag.is_some()
+            || self.game_state != GameState::Playing
+        {
             return;
         }
 
@@ -648,6 +669,42 @@ impl Vaflo {
 
         let text = self.context.document.create_text_node(text);
         let _ = element.append_with_node_1(&text);
+    }
+
+    fn update_game_state(&self) {
+        let text = match self.game_state {
+            GameState::Playing => "playing",
+            GameState::Won => "won",
+            GameState::Lost => "lost",
+        };
+
+        let _ = self.game_grid.set_attribute("class", text);
+    }
+
+    fn set_game_state(&mut self, state: GameState) {
+        self.game_state = state;
+        self.update_game_state();
+    }
+
+    fn set_won_state(&mut self) {
+        self.set_game_state(GameState::Won);
+
+        let text = match self.swaps_remaining {
+            4 => "Bonege!",
+            3 => "Tre bone!",
+            2 => "Sukceso!",
+            1 => "Bone!",
+            0 => "Uf! Ĝusteco!",
+            _ => "Perfekte!",
+        };
+
+        self.set_element_text(&self.swaps_remaining_message, text);
+    }
+
+    fn set_lost_state(&mut self) {
+        self.set_game_state(GameState::Lost);
+
+        self.set_element_text(&self.swaps_remaining_message, "Malsukcesis 😔");
     }
 
     fn update_square_letter(&self, position: usize) {
