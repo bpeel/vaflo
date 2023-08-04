@@ -494,6 +494,12 @@ impl Vaflo {
             self.set_square_class(position, None);
         }
         self.animated_letters.clear();
+
+        if self.grid.puzzle.is_solved() {
+            self.set_won_state();
+        } else if self.swaps_remaining == 0 {
+            self.set_lost_state();
+        }
     }
 
     fn slide_letter(&mut self, position: usize) {
@@ -563,14 +569,7 @@ impl Vaflo {
         self.slide_letter(position_b);
 
         self.swaps_remaining = self.swaps_remaining.saturating_sub(1);
-
-        if self.grid.puzzle.is_solved() {
-            self.set_won_state();
-        } else if self.swaps_remaining == 0 {
-            self.set_lost_state();
-        } else {
-            self.update_swaps_remaining();
-        }
+        self.update_swaps_remaining();
     }
 
     fn handle_pointerdown_event(&mut self, event: web_sys::PointerEvent) {
