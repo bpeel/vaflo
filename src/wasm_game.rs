@@ -24,6 +24,8 @@ const STOP_ANIMATIONS_DELAY: i32 = 250;
 const MAXIMUM_SWAPS: u32 = 15;
 const N_STARS: u32 = 5;
 
+const FIRST_PUZZLE_DATE: &'static str = "2023-08-04T00:00:00";
+
 fn show_error(message: &str) {
     console::log_1(&message.into());
 
@@ -43,6 +45,18 @@ fn show_error(message: &str) {
     };
 
     message_elem.set_text_content(Some("Eraro okazis"));
+}
+
+fn todays_puzzle_number(puzzles: &[Grid]) -> Option<usize> {
+    let first_date = js_sys::Date::parse(FIRST_PUZZLE_DATE);
+    let now = js_sys::Date::now();
+    let days = ((now - first_date) / (24.0 * 3_600_000.0)).floor();
+
+    if days.is_finite() && days >= 0.0 && days < puzzles.len() as f64 {
+        Some(days as usize)
+    } else {
+        None
+    }
 }
 
 struct Context {
@@ -283,7 +297,12 @@ impl Vaflo {
             return Err("failed to get swaps remaining message".to_string());
         };
 
-        let grid = puzzles[0].clone();
+        let Some(todays_puzzle) = todays_puzzle_number(&puzzles)
+        else {
+            return Err("there is new puzzle for today".to_string());
+        };
+
+        let grid = puzzles[todays_puzzle].clone();
 
         let mut vaflo = Box::new(Vaflo {
             context,
