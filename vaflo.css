@@ -96,6 +96,32 @@ h1 {
     animation-fill-mode: forwards;
 }
 
+#game-grid.won .letter {
+    animation-duration: 0.5s;
+    animation-name: wave;
+    animation-timing-function: ease-in-out;
+}
+
+#game-grid.won .letter.col0 {
+    animation-delay: 0.0s;
+}
+
+#game-grid.won .letter.col1 {
+    animation-delay: 0.125s;
+}
+
+#game-grid.won .letter.col2 {
+    animation-delay: 0.25s;
+}
+
+#game-grid.won .letter.col3 {
+    animation-delay: 0.375s;
+}
+
+#game-grid.won .letter.col4 {
+    animation-delay: 0.5s;
+}
+
 .stars span {
     display: inline-block;
     width: 2em;
@@ -113,6 +139,15 @@ h1 {
 }
 
 @keyframes slide {
+    to {
+        transform: translate(0px, 0px);
+    }
+}
+
+@keyframes wave {
+    50% {
+        transform: translate(0px, -1em);
+    }
     to {
         transform: translate(0px, 0px);
     }

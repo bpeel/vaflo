@@ -18,6 +18,7 @@ use wasm_bindgen::prelude::*;
 use web_sys::console;
 use super::grid;
 use grid::{Grid, WORD_LENGTH, PuzzleSquareState};
+use std::fmt::Write;
 
 const STOP_ANIMATIONS_DELAY: i32 = 250;
 const MAXIMUM_SWAPS: u32 = 15;
@@ -754,14 +755,15 @@ impl Vaflo {
             PuzzleSquareState::Wrong => "letter wrong",
         };
 
+        let mut class_string = class.to_string();
+
         if let Some(extra) = extra {
-            let _ = element.set_attribute(
-                "class",
-                &format!("{} {}", class, extra),
-            );
-        } else {
-            let _ = element.set_attribute("class", class);
-        }
+            class_string.push(' ');
+            class_string.push_str(extra);
+        };
+        write!(class_string, " col{}", position % WORD_LENGTH).unwrap();
+
+        let _ = element.set_attribute("class", &class_string);
     }
 
     fn update_square_states(&self) {
