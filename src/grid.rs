@@ -32,7 +32,7 @@ pub struct SolutionGrid {
     pub letters: [char; WORD_LENGTH * WORD_LENGTH]
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum PuzzleSquareState {
     Correct,
     WrongPosition,
@@ -125,19 +125,17 @@ impl Grid {
 
         // Mark all of the letters in the correct position already as used
         for (i, position) in positions.clone().into_iter().enumerate() {
-            if matches!(
-                self.puzzle.squares[position].state,
-                PuzzleSquareState::Correct,
-            ) {
+            if self.puzzle.squares[position].state
+                == PuzzleSquareState::Correct
+            {
                 used_letters |= 1 << i;
             }
         }
 
         for position in positions.clone() {
-            if matches!(
-                self.puzzle.squares[position].state,
-                PuzzleSquareState::Correct,
-            ) {
+            if self.puzzle.squares[position].state
+                == PuzzleSquareState::Correct
+            {
                 continue;
             }
 
@@ -155,10 +153,7 @@ impl Grid {
                     // word that crosses this one because we don’t
                     // want to have two yellow letters for the same
                     // letter.
-                    if matches!(
-                        square.state,
-                        PuzzleSquareState::WrongPosition,
-                    ) {
+                    if square.state == PuzzleSquareState::WrongPosition {
                         best_pos = Some((i, position));
                         break;
                     } else if best_pos.is_none() {
@@ -362,20 +357,20 @@ mod test {
         }
 
         assert_eq!(grid.puzzle.squares[0].position, 1);
-        assert!(matches!(
+        assert_eq!(
             grid.puzzle.squares[0].state,
             PuzzleSquareState::WrongPosition,
-        ));
+        );
         assert_eq!(grid.puzzle.squares[1].position, 0);
-        assert!(matches!(
+        assert_eq!(
             grid.puzzle.squares[1].state,
             PuzzleSquareState::WrongPosition,
-        ));
+        );
 
         for pos in 2..WORD_LENGTH * WORD_LENGTH {
             let square = &grid.puzzle.squares[pos];
             assert_eq!(square.position, pos);
-            assert!(matches!(square.state, PuzzleSquareState::Correct));
+            assert_eq!(square.state, PuzzleSquareState::Correct);
         }
     }
 
@@ -404,11 +399,11 @@ mod test {
             WORD_LENGTH * (WORD_LENGTH - 1)..WORD_LENGTH * WORD_LENGTH
         ];
 
-        assert!(matches!(row[0].state, PuzzleSquareState::Correct));
-        assert!(matches!(row[1].state, PuzzleSquareState::WrongPosition));
-        assert!(matches!(row[2].state, PuzzleSquareState::Wrong));
-        assert!(matches!(row[3].state, PuzzleSquareState::Correct));
-        assert!(matches!(row[4].state, PuzzleSquareState::WrongPosition));
+        assert_eq!(row[0].state, PuzzleSquareState::Correct);
+        assert_eq!(row[1].state, PuzzleSquareState::WrongPosition);
+        assert_eq!(row[2].state, PuzzleSquareState::Wrong);
+        assert_eq!(row[3].state, PuzzleSquareState::Correct);
+        assert_eq!(row[4].state, PuzzleSquareState::WrongPosition);
     }
 
     #[test]
@@ -419,10 +414,10 @@ mod test {
 
         let squares = &grid.puzzle.squares;
 
-        assert!(matches!(squares[4].state, PuzzleSquareState::Correct));
-        assert!(matches!(squares[9].state, PuzzleSquareState::Wrong));
-        assert!(matches!(squares[14].state, PuzzleSquareState::Correct));
-        assert!(matches!(squares[19].state, PuzzleSquareState::Correct));
-        assert!(matches!(squares[24].state, PuzzleSquareState::WrongPosition));
+        assert_eq!(squares[4].state, PuzzleSquareState::Correct);
+        assert_eq!(squares[9].state, PuzzleSquareState::Wrong);
+        assert_eq!(squares[14].state, PuzzleSquareState::Correct);
+        assert_eq!(squares[19].state, PuzzleSquareState::Correct);
+        assert_eq!(squares[24].state, PuzzleSquareState::WrongPosition);
     }
 }

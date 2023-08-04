@@ -609,10 +609,8 @@ impl Vaflo {
             client_rect.y() + client_rect.height() / 2.0,
         ).filter(|&target_position| {
             target_position != drag.position
-                && !matches!(
-                    self.grid.puzzle.squares[target_position].state,
-                    PuzzleSquareState::Correct,
-                )
+                && self.grid.puzzle.squares[target_position].state
+                != PuzzleSquareState::Correct
         }) {
             self.swap_letters(target_position, drag.position);
             // Make sure the dragging letter (which is now the target
