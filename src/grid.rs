@@ -107,6 +107,12 @@ impl PuzzleGrid {
             square.position = i;
         }
     }
+
+    pub fn is_solved(&self) -> bool {
+        self.squares.iter().find(|square| {
+            square.state != PuzzleSquareState::Correct
+        }).is_none()
+    }
 }
 
 impl Grid {
