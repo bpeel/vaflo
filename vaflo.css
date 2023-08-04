@@ -96,6 +96,22 @@ h1 {
     animation-fill-mode: forwards;
 }
 
+.stars span {
+    display: inline-block;
+    width: 2em;
+    height: 1.91em;
+    background-repeat: no-repeat;
+    background-size: cover;
+}
+
+.stars span.filled {
+    background-image: url("filled-star.png");
+}
+
+.stars span.empty {
+    background-image: url("empty-star.png");
+}
+
 @keyframes slide {
     to {
         transform: translate(0px, 0px);

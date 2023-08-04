@@ -21,6 +21,7 @@ use grid::{Grid, WORD_LENGTH, PuzzleSquareState};
 
 const STOP_ANIMATIONS_DELAY: i32 = 250;
 const MAXIMUM_SWAPS: u32 = 15;
+const N_STARS: u32 = 5;
 
 fn show_error(message: &str) {
     console::log_1(&message.into());
@@ -699,6 +700,27 @@ impl Vaflo {
         };
 
         self.set_element_text(&self.swaps_remaining_message, text);
+
+        if let Ok(stars) = self.context.document.create_element("div") {
+            let _ = stars.set_attribute("class", "stars");
+
+            for i in 0..N_STARS {
+                if let Ok(star) = self.context.document.create_element("span") {
+                    let _ = star.set_attribute(
+                        "class",
+                        if i + 1 <= self.swaps_remaining {
+                            "filled"
+                        } else {
+                            "empty"
+                        },
+                    );
+
+                    let _ = stars.append_with_node_1(&star);
+                }
+            }
+
+            let _ = self.swaps_remaining_message.append_with_node_1(&stars);
+        }
     }
 
     fn set_lost_state(&mut self) {
