@@ -217,10 +217,14 @@ impl Loader {
     fn start_game(&mut self, puzzles: Vec<Grid>) {
         let Loader { context, .. } = self.stop_floating();
 
-        let vaflo = Vaflo::new(context, puzzles);
-        // Leak the main vaflo object so that it will live as
-        // long as the web page
-        std::mem::forget(vaflo);
+        match Vaflo::new(context, puzzles) {
+            Ok(vaflo) => {
+                // Leak the main vaflo object so that it will live as
+                // long as the web page
+                std::mem::forget(vaflo);
+            },
+            Err(e) => show_error(&e.to_string()),
+        }
     }
 }
 
