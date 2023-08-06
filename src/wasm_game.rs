@@ -19,9 +19,9 @@ use web_sys::console;
 use super::grid;
 use grid::{Grid, WORD_LENGTH, PuzzleSquareState};
 use std::fmt::Write;
+use super::save_state::MAXIMUM_SWAPS;
 
 const STOP_ANIMATIONS_DELAY: i32 = 250;
-const MAXIMUM_SWAPS: u32 = 15;
 const N_STARS: u32 = 5;
 
 const FIRST_PUZZLE_DATE: &'static str = "2023-08-04T00:00:00";
