@@ -276,6 +276,7 @@ struct Vaflo {
     stop_animations_queued: bool,
     animated_letters: Vec<usize>,
     swaps_remaining: u32,
+    save_state_dirty: bool,
 }
 
 impl Vaflo {
@@ -328,6 +329,7 @@ impl Vaflo {
             stop_animations_queued: false,
             animated_letters: Vec::new(),
             swaps_remaining: save_state.swaps_remaining(),
+            save_state_dirty: false,
         });
 
         vaflo.create_closures();
@@ -612,6 +614,7 @@ impl Vaflo {
         self.slide_letter(position_a);
         self.slide_letter(position_b);
 
+        self.save_state_dirty = true;
         self.swaps_remaining = self.swaps_remaining.saturating_sub(1);
         self.update_swaps_remaining();
     }
@@ -833,7 +836,11 @@ impl Vaflo {
         let _ = self.game_grid.append_child(&self.letters[position]);
     }
 
-    fn save_to_local_storage(&self) {
+    fn save_to_local_storage(&mut self) {
+        if !self.save_state_dirty {
+            return;
+        }
+
         if let Some(local_storage) = get_local_storage(&self.context) {
             let mut save_states = load_save_states_from_local_storage(
                 &local_storage
@@ -849,6 +856,8 @@ impl Vaflo {
                 &save_state::save_states_to_string(save_states),
             ) {
                 console::log_1(&"Error saving state".into());
+            } else {
+                self.save_state_dirty = false;
             }
         }
     }
