@@ -22,6 +22,7 @@ use std::str::FromStr;
 use std::collections::HashMap;
 
 pub const MAXIMUM_SWAPS: u32 = 15;
+pub const MAXIMUM_STARS: u32 = 5;
 
 pub struct SaveState {
     grid: Grid,
@@ -175,6 +176,99 @@ pub fn load_save_states(
     Ok(states)
 }
 
+pub struct Statistics {
+    star_counts: [u32; MAXIMUM_STARS as usize + 1],
+    fail_count: u32,
+    n_played: u32,
+    total_stars: u32,
+    current_streak: u32,
+    best_streak: u32,
+}
+
+impl Statistics {
+    pub fn new(save_states: &HashMap<usize, SaveState>) -> Statistics
+    {
+        let mut puzzles = save_states
+            .iter()
+            .map(|(&k, v)| (k, v))
+            .collect::<Vec<_>>();
+
+        puzzles.sort_unstable_by(|(a, _), (b, _)| a.cmp(b));
+
+        let mut star_counts = [0; MAXIMUM_STARS as usize + 1];
+        let mut fail_count = 0;
+        let n_played = puzzles.len() as u32;
+        let mut total_stars = 0;
+        let mut current_streak = 0;
+        let mut best_streak = 0;
+        let mut last_puzzle_num = None;
+
+        for (puzzle_num, save_state) in puzzles {
+            let streak_continued = last_puzzle_num.map(|last_puzzle_num| {
+                last_puzzle_num + 1 == puzzle_num
+            }).unwrap_or(false);
+
+            if !streak_continued {
+                current_streak = 0;
+            }
+
+            if save_state.grid().puzzle.is_solved() {
+                current_streak += 1;
+
+                if current_streak > best_streak {
+                    best_streak = current_streak;
+                }
+
+                let stars = save_state.swaps_remaining().min(MAXIMUM_STARS);
+
+                star_counts[stars as usize] += 1;
+                total_stars += stars;
+            } else {
+                current_streak = 0;
+
+                if save_state.swaps_remaining() <= 0 {
+                    fail_count += 1;
+                }
+            }
+
+            last_puzzle_num = Some(puzzle_num);
+        }
+
+        Statistics {
+            star_counts,
+            fail_count,
+            n_played,
+            total_stars,
+            current_streak,
+            best_streak,
+        }
+    }
+
+    pub fn star_count(&self, n_stars: u32) -> u32 {
+        self.star_counts[n_stars as usize]
+    }
+
+    pub fn fail_count(&self) -> u32 {
+        self.fail_count
+    }
+
+    pub fn n_played(&self) -> u32 {
+        self.n_played
+    }
+
+    pub fn total_stars(&self) -> u32 {
+        self.total_stars
+    }
+
+    pub fn current_streak(&self) -> u32 {
+        self.current_streak
+    }
+
+    pub fn best_streak(&self) -> u32 {
+        self.best_streak
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -308,5 +402,131 @@ mod test {
             &save_states_to_string(save_states),
             save_states_string,
         );
+    }
+
+    fn add_puzzle(
+        puzzle_num: usize,
+        grid: &str,
+        swaps_remaining: usize,
+        buf: &mut String,
+    ) {
+        if !buf.is_empty() {
+            buf.push(',');
+        }
+
+        write!(
+            buf,
+            "{}:{}:{}",
+            puzzle_num,
+            grid,
+            swaps_remaining
+        ).unwrap();
+    }
+
+    fn add_unsolved(
+        puzzle_num: usize,
+        swaps_remaining: usize,
+        buf: &mut String,
+    ) {
+        add_puzzle(
+            puzzle_num,
+            "MORSAUUKROLASDOOURSOJ\
+             ardxnhpfmvulwtybkeocj",
+            swaps_remaining,
+            buf,
+        );
+    }
+
+    fn add_fail(puzzle_num: usize, buf: &mut String) {
+        add_unsolved(puzzle_num, 0, buf);
+    }
+
+    fn add_unfinished(puzzle_num: usize, buf: &mut String) {
+        add_unsolved(puzzle_num, 1, buf);
+    }
+
+    fn add_solved(puzzle_num: usize, n_stars: usize, buf: &mut String) {
+        add_puzzle(
+            puzzle_num,
+            "MORSAUUKROLASDOOURSOJ\
+             arcdnhfjvlmewpxbukoty",
+            n_stars,
+            buf,
+        );
+    }
+
+    #[test]
+    fn statistics() {
+        let mut buf = String::new();
+
+        add_solved(0, 0, &mut buf);
+        add_solved(1, 1, &mut buf);
+        add_solved(2, 2, &mut buf);
+        add_solved(3, 3, &mut buf);
+        add_solved(4, 4, &mut buf);
+        add_solved(5, 5, &mut buf);
+
+        add_fail(6, &mut buf);
+
+        add_solved(7, 2, &mut buf);
+        add_solved(8, 3, &mut buf);
+
+        let statistics = Statistics::new(&load_save_states(&buf).unwrap());
+
+        assert_eq!(statistics.best_streak(), 6);
+        assert_eq!(statistics.current_streak(), 2);
+        assert_eq!(statistics.star_count(0), 1);
+        assert_eq!(statistics.star_count(1), 1);
+        assert_eq!(statistics.star_count(2), 2);
+        assert_eq!(statistics.star_count(3), 2);
+        assert_eq!(statistics.star_count(4), 1);
+        assert_eq!(statistics.star_count(5), 1);
+        assert_eq!(statistics.fail_count(), 1);
+        assert_eq!(statistics.n_played(), 9);
+        assert_eq!(
+            statistics.total_stars(),
+            0 * 1
+                + 1 * 1
+                + 2 * 2
+                + 3 * 2
+                + 4 * 1
+                + 5 * 1,
+        );
+    }
+
+    #[test]
+    fn unfinished_statistics() {
+        let mut buf = String::new();
+
+        add_solved(4, 4, &mut buf);
+        add_solved(5, 5, &mut buf);
+
+        add_unfinished(6, &mut buf);
+
+        add_solved(7, 2, &mut buf);
+
+        let statistics = Statistics::new(&load_save_states(&buf).unwrap());
+
+        assert_eq!(statistics.best_streak(), 2);
+        assert_eq!(statistics.current_streak(), 1);
+        assert_eq!(statistics.n_played(), 4);
+        assert_eq!(statistics.total_stars(), 4 + 5 + 2);
+    }
+
+    #[test]
+    fn statistics_gap() {
+        let mut buf = String::new();
+
+        add_solved(4, 4, &mut buf);
+        add_solved(5, 5, &mut buf);
+
+        add_solved(7, 2, &mut buf);
+
+        let statistics = Statistics::new(&load_save_states(&buf).unwrap());
+
+        assert_eq!(statistics.best_streak(), 2);
+        assert_eq!(statistics.current_streak(), 1);
+        assert_eq!(statistics.n_played(), 3);
+        assert_eq!(statistics.total_stars(), 4 + 5 + 2);
     }
 }
