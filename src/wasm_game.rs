@@ -269,6 +269,7 @@ struct Vaflo {
     letters: Vec<web_sys::HtmlElement>,
     swaps_remaining_message: web_sys::HtmlElement,
     game_state: GameState,
+    todays_puzzle: usize,
     grid: Grid,
     drag: Option<Drag>,
     stop_animations_closure: Option<Closure::<dyn Fn()>>,
@@ -320,6 +321,7 @@ impl Vaflo {
             swaps_remaining_message,
             letters: Vec::with_capacity(WORD_LENGTH * WORD_LENGTH),
             game_state: GameState::Playing,
+            todays_puzzle,
             grid: save_state.grid().clone(),
             drag: None,
             stop_animations_closure: None,
@@ -527,7 +529,9 @@ impl Vaflo {
         }
         self.animated_letters.clear();
 
-        self.check_end_state();
+        if self.check_end_state() {
+            self.save_to_local_storage();
+        }
     }
 
     fn check_end_state(&mut self) -> bool {
@@ -827,6 +831,26 @@ impl Vaflo {
 
     fn move_letter_to_top(&self, position: usize) {
         let _ = self.game_grid.append_child(&self.letters[position]);
+    }
+
+    fn save_to_local_storage(&self) {
+        if let Some(local_storage) = get_local_storage(&self.context) {
+            let mut save_states = load_save_states_from_local_storage(
+                &local_storage
+            );
+
+            save_states.insert(
+                self.todays_puzzle,
+                SaveState::new(self.grid.clone(), self.swaps_remaining),
+            );
+
+            if let Err(_) = local_storage.set_item(
+                SAVE_STATE_KEY,
+                &save_state::save_states_to_string(save_states),
+            ) {
+                console::log_1(&"Error saving state".into());
+            }
+        }
     }
 }
 
