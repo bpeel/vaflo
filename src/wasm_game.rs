@@ -336,6 +336,7 @@ impl Vaflo {
 
         vaflo.create_closures();
         vaflo.create_letters()?;
+        vaflo.update_title();
         vaflo.update_square_letters();
         vaflo.update_square_states();
 
@@ -735,6 +736,15 @@ impl Vaflo {
 
         let text = self.context.document.create_text_node(text);
         let _ = element.append_with_node_1(&text);
+    }
+
+    fn update_title(&self) {
+        if let Some(element) = self.context.document.get_element_by_id("title")
+            .and_then(|c| c.dyn_into::<web_sys::HtmlElement>().ok())
+        {
+            let value = format!("Vaflo #{}", self.todays_puzzle + 1);
+            self.set_element_text(&element, &value);
+        }
     }
 
     fn update_game_state(&self) {
