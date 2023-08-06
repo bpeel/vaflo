@@ -261,7 +261,6 @@ struct Vaflo {
     pointerup_closure: Option<Closure::<dyn Fn(JsValue)>>,
     pointermove_closure: Option<Closure::<dyn Fn(JsValue)>>,
     pointercancel_closure: Option<Closure::<dyn Fn(JsValue)>>,
-    puzzles: Vec<Grid>,
     game_contents: web_sys::HtmlElement,
     game_grid: web_sys::HtmlElement,
     letters: Vec<web_sys::HtmlElement>,
@@ -302,21 +301,18 @@ impl Vaflo {
             return Err("there is new puzzle for today".to_string());
         };
 
-        let grid = puzzles[todays_puzzle].clone();
-
         let mut vaflo = Box::new(Vaflo {
             context,
             pointerdown_closure: None,
             pointerup_closure: None,
             pointermove_closure: None,
             pointercancel_closure: None,
-            puzzles,
             game_contents,
             game_grid,
             swaps_remaining_message,
             letters: Vec::with_capacity(WORD_LENGTH * WORD_LENGTH),
             game_state: GameState::Playing,
-            grid,
+            grid: puzzles[todays_puzzle].clone(),
             drag: None,
             stop_animations_closure: None,
             stop_animations_queued: false,
