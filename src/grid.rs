@@ -439,4 +439,14 @@ mod test {
             .parse::<Grid>().unwrap();
         assert!(grid.puzzle.is_solved());
     }
+
+    #[test]
+    fn gaps() {
+        assert_eq!(
+            (0..WORD_LENGTH * WORD_LENGTH)
+                .filter(|&position| !is_gap_position(position))
+                .count(),
+            N_LETTERS,
+        );
+    }
 }
