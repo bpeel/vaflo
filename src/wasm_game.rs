@@ -29,6 +29,13 @@ const SAVE_STATE_KEY: &'static str = "vaflo-save-states";
 
 const FIRST_PUZZLE_DATE: &'static str = "2023-08-04T00:00:00";
 
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(js_namespace = ["navigator", "clipboard"],
+                   js_name = "writeText")]
+    fn set_clipboard_text(s: &str);
+}
+
 fn show_error(message: &str) {
     console::log_1(&message.into());
 
@@ -265,6 +272,7 @@ struct Vaflo {
     pointermove_closure: Option<Closure::<dyn Fn(JsValue)>>,
     pointercancel_closure: Option<Closure::<dyn Fn(JsValue)>>,
     visibility_closure: Option<Closure::<dyn Fn(JsValue)>>,
+    share_closure: Option<Closure::<dyn Fn(JsValue)>>,
     game_contents: web_sys::HtmlElement,
     game_grid: web_sys::HtmlElement,
     letters: Vec<web_sys::HtmlElement>,
@@ -278,6 +286,7 @@ struct Vaflo {
     animated_letters: Vec<usize>,
     swaps_remaining: u32,
     save_state_dirty: bool,
+    current_streak: u32,
 }
 
 impl Vaflo {
@@ -319,6 +328,7 @@ impl Vaflo {
             pointermove_closure: None,
             pointercancel_closure: None,
             visibility_closure: None,
+            share_closure: None,
             game_contents,
             game_grid,
             swaps_remaining_message,
@@ -332,16 +342,18 @@ impl Vaflo {
             animated_letters: Vec::new(),
             swaps_remaining: save_state.swaps_remaining(),
             save_state_dirty: false,
+            current_streak: 0,
         });
 
         vaflo.create_closures();
+        vaflo.set_up_share_button();
         vaflo.create_letters()?;
         vaflo.update_title();
         vaflo.update_square_letters();
         vaflo.update_square_states();
 
         if vaflo.check_end_state() {
-            vaflo.show_statistics();
+            vaflo.show_end_text();
         } else {
             vaflo.update_game_state();
             vaflo.update_swaps_remaining();
@@ -428,6 +440,31 @@ impl Vaflo {
         );
 
         self.visibility_closure = Some(visibility_closure);
+    }
+
+    fn set_up_share_button(&mut self) {
+        let vaflo_pointer = self as *mut Vaflo;
+
+        let share_closure = Closure::<dyn Fn(JsValue)>::new(
+            move |_event: JsValue| {
+                let vaflo = unsafe { &mut *vaflo_pointer };
+                vaflo.share_results();
+            }
+        );
+
+        let Some(share_button) =
+            self.context.document.get_element_by_id("share-button")
+            .and_then(|c| c.dyn_into::<web_sys::HtmlElement>().ok())
+        else {
+            return;
+        };
+
+        let _ = share_button.add_event_listener_with_callback(
+            "click",
+            share_closure.as_ref().unchecked_ref(),
+        );
+
+        self.share_closure = Some(share_closure);
     }
 
     fn create_letters(&mut self) -> Result<(), String> {
@@ -552,7 +589,7 @@ impl Vaflo {
 
         if self.check_end_state() {
             self.save_to_local_storage();
-            self.show_statistics();
+            self.show_end_text();
         }
     }
 
@@ -902,10 +939,26 @@ impl Vaflo {
         }
     }
 
-    fn show_statistics(&self) {
+    fn show_element_as_block(&self, id: &str) {
+        if let Some(element) = self.context.document.get_element_by_id(id)
+            .and_then(|c| c.dyn_into::<web_sys::HtmlElement>().ok())
+        {
+            let _ = element.style().set_property("display", "block");
+        }
+    }
+
+    fn show_end_text(&mut self) {
         let save_states = load_save_states(&self.context);
         let statistics = save_state::Statistics::new(&save_states);
 
+        self.current_streak = statistics.current_streak();
+
+        self.show_statistics(&statistics);
+
+        self.show_element_as_block("share-button");
+    }
+
+    fn show_statistics(&self, statistics: &save_state::Statistics) {
         self.set_stats_element("stats-played", statistics.n_played());
         self.set_stats_element("stats-total-stars", statistics.total_stars());
         self.set_stats_element(
@@ -932,12 +985,57 @@ impl Vaflo {
             );
         }
 
-        if let Some(statistics_div) =
-            self.context.document.get_element_by_id("statistics")
-            .and_then(|c| c.dyn_into::<web_sys::HtmlElement>().ok())
-        {
-            let _ = statistics_div.style().set_property("display", "block");
+        self.show_element_as_block("statistics");
+    }
+
+    fn share_results(&self) {
+        let mut results = String::new();
+
+        write!(results, "#vaflo{}", self.todays_puzzle + 1).unwrap();
+
+        if self.grid.puzzle.is_solved() {
+            write!(
+                results,
+                " {}/{}\n\
+                 \n\
+                 Steloj: ",
+                self.swaps_remaining,
+                save_state::MAXIMUM_STARS,
+            ).unwrap();
+
+            for _ in 0..self.swaps_remaining {
+                results.push('⭐');
+            }
+
+            if let Some(dots) = save_state::MAXIMUM_STARS
+                .checked_sub(self.swaps_remaining)
+            {
+                for _ in 0..dots {
+                    results.push('🔹')
+                }
+            }
+
+            write!(
+                results,
+                "\n\
+                 Serio: {}",
+                self.current_streak,
+            ).unwrap();
+        } else {
+            results.push_str(
+                "\n\
+                 \n\
+                 Malsukcesis 😔"
+            );
         }
+
+        results.push_str(
+            "\n\
+             \n\
+             vaflo.net"
+        );
+
+        set_clipboard_text(&results);
     }
 }
 

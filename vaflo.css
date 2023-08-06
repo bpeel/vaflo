@@ -173,6 +173,27 @@ h1, h2 {
     text-align: left;
 }
 
+#share-button {
+    text-align: center;
+    padding: 1em;
+}
+
+#share-button button {
+    display: inline-block;
+    background-color: #6fb05c;
+    border-color: #649e53;
+    border-style: none none solid none;
+    border-width: 0.2em;
+    font-size: 1.8em;
+    color: white;
+    padding: 0.2em 0.4em;
+    border-radius: 0.5em;
+}
+
+#share-button button:active {
+    border-color: #6fb05c;
+}
+
 @media only all and (max-width: 45em) {
     #content {
         position: absolute;
