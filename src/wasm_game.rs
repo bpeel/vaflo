@@ -298,7 +298,7 @@ impl Vaflo {
 
         let Some(todays_puzzle) = todays_puzzle_number(&puzzles)
         else {
-            return Err("there is new puzzle for today".to_string());
+            return Err("there is no puzzle for today".to_string());
         };
 
         let mut vaflo = Box::new(Vaflo {
