@@ -339,7 +339,9 @@ impl Vaflo {
         vaflo.update_square_letters();
         vaflo.update_square_states();
 
-        if !vaflo.check_end_state() {
+        if vaflo.check_end_state() {
+            vaflo.show_statistics();
+        } else {
             vaflo.update_game_state();
             vaflo.update_swaps_remaining();
         }
@@ -549,6 +551,7 @@ impl Vaflo {
 
         if self.check_end_state() {
             self.save_to_local_storage();
+            self.show_statistics();
         }
     }
 
@@ -875,6 +878,55 @@ impl Vaflo {
             } else {
                 self.save_state_dirty = false;
             }
+        }
+    }
+
+    fn set_stats_element(&self, id: &str, value: u32) {
+        if let Some(element) = self.context.document.get_element_by_id(id)
+            .and_then(|c| c.dyn_into::<web_sys::HtmlElement>().ok())
+        {
+            let value = format!("{}", value);
+            self.set_element_text(&element, &value);
+        } else {
+            console::log_1(&format!("Missing {} element", id).into());
+        }
+    }
+
+    fn show_statistics(&self) {
+        let save_states = load_save_states(&self.context);
+        let statistics = save_state::Statistics::new(&save_states);
+
+        self.set_stats_element("stats-played", statistics.n_played());
+        self.set_stats_element("stats-total-stars", statistics.total_stars());
+        self.set_stats_element(
+            "stats-current-streak",
+            statistics.current_streak()
+        );
+        self.set_stats_element(
+            "stats-best-streak",
+            statistics.best_streak()
+        );
+        self.set_stats_element(
+            "stats-fail-count",
+            statistics.fail_count()
+        );
+
+        let mut n_stars_element = String::new();
+
+        for n_stars in 0..=save_state::MAXIMUM_STARS {
+            n_stars_element.clear();
+            write!(n_stars_element, "stats-{}-stars", n_stars).unwrap();
+            self.set_stats_element(
+                &n_stars_element,
+                statistics.star_count(n_stars)
+            );
+        }
+
+        if let Some(statistics_div) =
+            self.context.document.get_element_by_id("statistics")
+            .and_then(|c| c.dyn_into::<web_sys::HtmlElement>().ok())
+        {
+            let _ = statistics_div.style().set_property("display", "block");
         }
     }
 }

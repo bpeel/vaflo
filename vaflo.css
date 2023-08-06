@@ -11,8 +11,10 @@ body {
     padding-bottom: 3em;
 }
 
-h1 {
+h1, h2 {
     text-align: center;
+    padding-left: 1em;
+    padding-right: 1em;
 }
 
 #message {
@@ -158,6 +160,17 @@ h1 {
     font-size: large;
     text-align: center;
     font-weight: bold;
+}
+
+#statistics table {
+    margin-left: auto;
+    margin-right: auto;
+}
+
+#statistics table th {
+    background-color: #f6f7f8;
+    padding: 0.5em;
+    text-align: left;
 }
 
 @media only all and (max-width: 45em) {
