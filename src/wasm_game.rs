@@ -264,6 +264,7 @@ struct Vaflo {
     pointerup_closure: Option<Closure::<dyn Fn(JsValue)>>,
     pointermove_closure: Option<Closure::<dyn Fn(JsValue)>>,
     pointercancel_closure: Option<Closure::<dyn Fn(JsValue)>>,
+    visibility_closure: Option<Closure::<dyn Fn(JsValue)>>,
     game_contents: web_sys::HtmlElement,
     game_grid: web_sys::HtmlElement,
     letters: Vec<web_sys::HtmlElement>,
@@ -317,6 +318,7 @@ impl Vaflo {
             pointerup_closure: None,
             pointermove_closure: None,
             pointercancel_closure: None,
+            visibility_closure: None,
             game_contents,
             game_grid,
             swaps_remaining_message,
@@ -409,6 +411,20 @@ impl Vaflo {
         );
 
         self.pointercancel_closure = Some(pointercancel_closure);
+
+        let visibility_closure = Closure::<dyn Fn(JsValue)>::new(
+            move |_event: JsValue| {
+                let vaflo = unsafe { &mut *vaflo_pointer };
+                vaflo.save_to_local_storage();
+            }
+        );
+
+        let _ = self.context.document.add_event_listener_with_callback(
+            "visibilitychange",
+            visibility_closure.as_ref().unchecked_ref(),
+        );
+
+        self.visibility_closure = Some(visibility_closure);
     }
 
     fn create_letters(&mut self) -> Result<(), String> {
