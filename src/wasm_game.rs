@@ -19,10 +19,13 @@ use web_sys::console;
 use super::grid;
 use grid::{Grid, WORD_LENGTH, PuzzleSquareState};
 use std::fmt::Write;
-use super::save_state::MAXIMUM_SWAPS;
+use super::save_state;
+use save_state::{MAXIMUM_SWAPS, SaveState};
+use std::collections::HashMap;
 
 const STOP_ANIMATIONS_DELAY: i32 = 250;
 const N_STARS: u32 = 5;
+const SAVE_STATE_KEY: &'static str = "vaflo-save-states";
 
 const FIRST_PUZZLE_DATE: &'static str = "2023-08-04T00:00:00";
 
@@ -301,6 +304,11 @@ impl Vaflo {
             return Err("there is no puzzle for today".to_string());
         };
 
+        let save_state = load_save_state_for_puzzle(&context, todays_puzzle)
+            .unwrap_or_else(|| {
+                SaveState::new(puzzles[todays_puzzle].clone(), MAXIMUM_SWAPS)
+            });
+
         let mut vaflo = Box::new(Vaflo {
             context,
             pointerdown_closure: None,
@@ -312,20 +320,24 @@ impl Vaflo {
             swaps_remaining_message,
             letters: Vec::with_capacity(WORD_LENGTH * WORD_LENGTH),
             game_state: GameState::Playing,
-            grid: puzzles[todays_puzzle].clone(),
+            grid: save_state.grid().clone(),
             drag: None,
             stop_animations_closure: None,
             stop_animations_queued: false,
             animated_letters: Vec::new(),
-            swaps_remaining: MAXIMUM_SWAPS,
+            swaps_remaining: save_state.swaps_remaining(),
         });
 
         vaflo.create_closures();
         vaflo.create_letters()?;
-        vaflo.update_game_state();
         vaflo.update_square_letters();
         vaflo.update_square_states();
-        vaflo.update_swaps_remaining();
+
+        if !vaflo.check_end_state() {
+            vaflo.update_game_state();
+            vaflo.update_swaps_remaining();
+        }
+
         vaflo.show_game_contents();
 
         Ok(vaflo)
@@ -515,10 +527,18 @@ impl Vaflo {
         }
         self.animated_letters.clear();
 
+        self.check_end_state();
+    }
+
+    fn check_end_state(&mut self) -> bool {
         if self.grid.puzzle.is_solved() {
             self.set_won_state();
+            true
         } else if self.swaps_remaining == 0 {
             self.set_lost_state();
+            true
+        } else {
+            false
         }
     }
 
@@ -808,6 +828,59 @@ impl Vaflo {
     fn move_letter_to_top(&self, position: usize) {
         let _ = self.game_grid.append_child(&self.letters[position]);
     }
+}
+
+fn load_save_states_from_local_storage(
+    local_storage: &web_sys::Storage,
+) -> HashMap<usize, SaveState> {
+    match local_storage.get_item(SAVE_STATE_KEY) {
+        Ok(Some(save_states)) => {
+            match save_state::load_save_states(&save_states) {
+                Ok(save_states) => save_states,
+                Err(e) => {
+                    console::log_1(&format!(
+                        "Error parsing save states: {}",
+                        e,
+                    ).into());
+                    HashMap::new()
+                },
+            }
+        },
+        Ok(None) => HashMap::new(),
+        Err(_) => {
+            console::log_1(&"Error getting save states".into());
+            HashMap::new()
+        },
+    }
+}
+
+fn get_local_storage(context: &Context) -> Option<web_sys::Storage> {
+    match context.window.local_storage() {
+        Ok(Some(local_storage)) => Some(local_storage),
+        Ok(None) => {
+            console::log_1(&"Local storage is None".into());
+            None
+        },
+        Err(_) => {
+            console::log_1(&"Error getting local storage".into());
+            None
+        },
+    }
+}
+
+fn load_save_states(context: &Context) -> HashMap<usize, SaveState> {
+    if let Some(local_storage) = get_local_storage(context) {
+        load_save_states_from_local_storage(&local_storage)
+    } else {
+        HashMap::new()
+    }
+}
+
+fn load_save_state_for_puzzle(
+    context: &Context,
+    puzzle_num: usize,
+) -> Option<SaveState> {
+    load_save_states(context).remove(&puzzle_num)
 }
 
 #[wasm_bindgen]
