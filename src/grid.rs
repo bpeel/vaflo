@@ -426,4 +426,17 @@ mod test {
         assert_eq!(squares[19].state, PuzzleSquareState::Correct);
         assert_eq!(squares[24].state, PuzzleSquareState::WrongPosition);
     }
+
+    #[test]
+    fn solved() {
+        let grid = "MORSAUUKROLASDOOURSOJ\
+                    ardxnhpfmvulwtybkeocj"
+            .parse::<Grid>().unwrap();
+        assert!(!grid.puzzle.is_solved());
+
+        let grid = "MORSAUUKROLASDOOURSOJ\
+                    arcdnhfjvlmewpxbukoty"
+            .parse::<Grid>().unwrap();
+        assert!(grid.puzzle.is_solved());
+    }
 }
