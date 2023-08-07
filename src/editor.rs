@@ -660,24 +660,21 @@ impl Editor {
 }
 
 fn load_dictionary() -> Result<Arc<Dictionary>, ()> {
-    let data = match std::env::args_os().nth(1) {
-        Some(filename) => {
-            match std::fs::read(&filename) {
-                Err(e) => {
-                    eprintln!(
-                        "{}: {}",
-                        filename.to_string_lossy(),
-                        e,
-                    );
-                    return Err(());
-                },
-                Ok(d) => d,
-            }
-        },
-        None => Vec::new(),
-    };
+    let filename = std::env::args_os()
+        .nth(1)
+        .unwrap_or("data/dictionary.bin".into());
 
-    Ok(Arc::new(Dictionary::new(data.into_boxed_slice())))
+    match std::fs::read(&filename) {
+        Err(e) => {
+            eprintln!(
+                "{}: {}",
+                filename.to_string_lossy(),
+                e,
+            );
+            Err(())
+        },
+        Ok(d) => Ok(Arc::new(Dictionary::new(d.into_boxed_slice()))),
+    }
 }
 
 fn load_puzzles() -> Result<Vec<Grid>, ()> {
