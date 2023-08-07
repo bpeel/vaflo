@@ -28,7 +28,7 @@ const REMOVE_NOTICE_DELAY: i32 = 3_250;
 const N_STARS: u32 = 5;
 const SAVE_STATE_KEY: &'static str = "vaflo-save-states";
 
-const FIRST_PUZZLE_DATE: &'static str = "2023-08-04T00:00:00";
+const FIRST_PUZZLE_DATE: &'static str = "2023-08-07T00:00:00";
 
 fn show_error(message: &str) {
     console::log_1(&message.into());
