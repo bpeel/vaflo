@@ -30,13 +30,6 @@ const SAVE_STATE_KEY: &'static str = "vaflo-save-states";
 
 const FIRST_PUZZLE_DATE: &'static str = "2023-08-04T00:00:00";
 
-#[wasm_bindgen]
-extern "C" {
-    #[wasm_bindgen(js_namespace = ["navigator", "clipboard"],
-                   js_name = "writeText")]
-    fn set_clipboard_text(s: &str);
-}
-
 fn show_error(message: &str) {
     console::log_1(&message.into());
 
@@ -71,7 +64,7 @@ fn todays_puzzle_number(puzzles: &[Grid]) -> Option<usize> {
 }
 
 struct Context {
-    document: web_sys::Document,
+    document: web_sys::HtmlDocument,
     window: web_sys::Window,
     message: web_sys::HtmlElement,
 }
@@ -84,6 +77,7 @@ impl Context {
         };
 
         let Some(document) = window.document()
+            .and_then(|d| d.dyn_into::<web_sys::HtmlDocument>().ok())
         else {
             return Err("failed to get document".to_string());
         };
@@ -1042,8 +1036,39 @@ impl Vaflo {
              vaflo.net"
         );
 
-        set_clipboard_text(&results);
-        self.show_notice("Mesaĝo kopiita al la tondujo");
+        match self.set_clipboard_text(&results) {
+            Ok(()) => self.show_notice("Mesaĝo kopiita al la tondujo"),
+            Err(e) => console::log_1(&e.into()),
+        }
+    }
+
+    fn set_clipboard_text(&self, text: &str) -> Result<(), String> {
+        let Some(element) =
+            self.context.document.create_element("textarea").ok()
+            .and_then(|c| c.dyn_into::<web_sys::HtmlTextAreaElement>().ok())
+        else {
+            return Err("failed to create clipboard element".to_string());
+        };
+
+        element.set_value(text);
+
+        let Some(body) = self.context.document.body()
+        else {
+            return Err("no body element".to_string());
+        };
+
+        let _ = body.append_child(&element);
+        element.select();
+
+        let copy_result = self.context.document.exec_command("copy");
+
+        element.remove();
+
+        if copy_result.is_err() {
+            Err("copy command failed".to_string())
+        } else {
+            Ok(())
+        }
     }
 
     fn remove_notice(&mut self) {
