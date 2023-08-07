@@ -195,6 +195,27 @@ h1, h2 {
     border-color: #6fb05c;
 }
 
+.notice {
+    position: fixed;
+    display: inline-block;
+    top: 3em;
+    left: 50%;
+    transform: translate(-50%, 0%);
+    font-size: large;
+    font-weight: bold;
+    animation: 0.25s ease-out 3s fade-out;
+    animation-fill-mode: forwards;
+    color: white;
+    background-color: #454747;
+    padding: 1em 1.5em;
+}
+
+@keyframes fade-out {
+    to {
+        opacity: 0;
+    }
+}
+
 @media only all and (max-width: 45em) {
     #content {
         position: absolute;

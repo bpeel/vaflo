@@ -24,6 +24,7 @@ use save_state::{MAXIMUM_SWAPS, SaveState};
 use std::collections::HashMap;
 
 const STOP_ANIMATIONS_DELAY: i32 = 250;
+const REMOVE_NOTICE_DELAY: i32 = 3_250;
 const N_STARS: u32 = 5;
 const SAVE_STATE_KEY: &'static str = "vaflo-save-states";
 
@@ -287,6 +288,9 @@ struct Vaflo {
     swaps_remaining: u32,
     save_state_dirty: bool,
     current_streak: u32,
+    notice_element: Option<web_sys::HtmlElement>,
+    notice_closure: Option<Closure::<dyn Fn()>>,
+    notice_timeout_handle: Option<i32>,
 }
 
 impl Vaflo {
@@ -343,6 +347,9 @@ impl Vaflo {
             swaps_remaining: save_state.swaps_remaining(),
             save_state_dirty: false,
             current_streak: 0,
+            notice_closure: None,
+            notice_element: None,
+            notice_timeout_handle: None,
         });
 
         vaflo.create_closures();
@@ -988,7 +995,7 @@ impl Vaflo {
         self.show_element_as_block("statistics");
     }
 
-    fn share_results(&self) {
+    fn share_results(&mut self) {
         let mut results = String::new();
 
         write!(results, "#vaflo{}", self.todays_puzzle + 1).unwrap();
@@ -1036,6 +1043,63 @@ impl Vaflo {
         );
 
         set_clipboard_text(&results);
+        self.show_notice("Mesaĝo kopiita al la tondujo");
+    }
+
+    fn remove_notice(&mut self) {
+        if let Some(handle) = self.notice_timeout_handle.take() {
+            self.context.window.clear_timeout_with_handle(handle);
+        }
+
+        if let Some(element) = self.notice_element.take() {
+            element.remove();
+        }
+    }
+
+    fn show_notice(&mut self, text: &str) {
+        self.remove_notice();
+
+        let Some(element) = self.context.document.create_element("div").ok()
+            .and_then(|c| c.dyn_into::<web_sys::HtmlElement>().ok())
+        else {
+            console::log_1(&"failed to create notice element".into());
+            return;
+        };
+
+        let _ = element.set_attribute("class", "notice");
+        self.set_element_text(&element, text);
+
+        if let Some(body) = self.context.document.body() {
+            let _ = body.append_child(&element);
+        };
+
+        self.notice_element = Some(element);
+
+        let vaflo_pointer = self as *mut Vaflo;
+
+        let closure = self.notice_closure.get_or_insert_with(|| {
+            Closure::<dyn Fn()>::new(move || {
+                let vaflo = unsafe { &mut *vaflo_pointer };
+                vaflo.remove_notice();
+            })
+        });
+
+        match self
+            .context
+            .window
+            .set_timeout_with_callback_and_timeout_and_arguments_0(
+                closure.as_ref().unchecked_ref(),
+                REMOVE_NOTICE_DELAY,
+            )
+        {
+            Ok(handle) => {
+                self.notice_timeout_handle = Some(handle);
+            },
+            Err(_) => {
+                console::log_1(&"Error setting timeout".into());
+                self.remove_notice();
+            },
+        }
     }
 }
 
