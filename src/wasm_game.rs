@@ -1019,7 +1019,7 @@ impl Vaflo {
             write!(
                 results,
                 "\n\
-                 Serio: {}",
+                 Gajnvico: {}",
                 self.current_streak,
             ).unwrap();
         } else {
