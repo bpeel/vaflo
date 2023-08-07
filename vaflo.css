@@ -191,6 +191,7 @@ h1, h2 {
 }
 
 #share-button button:active {
+    border-style: solid none none none;
     border-color: #6fb05c;
 }
 
