@@ -207,39 +207,6 @@ fn draw_grid(
     );
 }
 
-fn grid_to_letter_grid(
-    grid: &Grid
-) -> Result<LetterGrid, letter_grid::ParseError> {
-    let mut grid_string = String::new();
-
-    for y in 0..WORD_LENGTH {
-        for x in 0..WORD_LENGTH {
-            if grid::is_gap_space(x as i32, y as i32) {
-                grid_string.push(' ');
-            } else {
-                let pos = x + y * WORD_LENGTH;
-                let square = &grid.puzzle.squares[pos];
-                let letter = grid.solution.letters[square.position];
-
-                match square.state {
-                    PuzzleSquareState::Correct => {
-                        grid_string.extend(letter.to_uppercase());
-                    },
-                    PuzzleSquareState::Wrong
-                        | PuzzleSquareState::WrongPosition =>
-                    {
-                        grid_string.extend(letter.to_lowercase());
-                    },
-                }
-            }
-        }
-
-        grid_string.push('\n');
-    }
-
-    grid_string.parse::<LetterGrid>()
-}
-
 fn minimum_swaps(grid: &Grid) -> Option<usize> {
     let solution = grid.solution
         .letters
@@ -890,7 +857,7 @@ impl SolverThread {
             let skip_receiver = SkipReceiverIter::new(word_grid_receiver);
 
             for (grid_id, grid) in skip_receiver {
-                let Ok(grid) = grid_to_letter_grid(&grid)
+                let Ok(grid) = LetterGrid::from_grid(&grid)
                 else {
                     continue;
                 };
