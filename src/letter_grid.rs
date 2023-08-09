@@ -16,7 +16,8 @@
 
 use std::fmt;
 use std::str::FromStr;
-use super::grid::{WORD_LENGTH, N_WORDS_ON_AXIS, N_SPACING_LETTERS, N_LETTERS};
+use super::grid;
+use grid::{WORD_LENGTH, N_WORDS_ON_AXIS, N_SPACING_LETTERS, N_LETTERS};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LetterState {
@@ -147,6 +148,44 @@ impl FromStr for LetterGrid {
 }
 
 impl LetterGrid {
+    pub fn from_grid(grid: &grid::Grid) -> Result<LetterGrid, ParseError> {
+        let mut letter_grid =
+            LetterGrid { letters: [DEFAULT_LETTER; N_LETTERS] };
+
+        for position in 0..WORD_LENGTH * WORD_LENGTH {
+            if grid::is_gap_position(position) {
+                continue;
+            }
+
+            let x = position % WORD_LENGTH;
+            let y = position / WORD_LENGTH;
+
+            let letter_num = if y & 1 == 0 {
+                y / 2 * WORD_LENGTH + x
+            } else {
+                WORD_LENGTH * N_WORDS_ON_AXIS
+                    + x / 2 * N_SPACING_LETTERS
+                    + y / 2
+            };
+
+            let solution_pos = grid.puzzle.squares[position].position;
+
+            let mut letter =
+                Letter::from_char(y + 1, grid.solution.letters[solution_pos])?;
+
+            letter.state = match grid.puzzle.squares[position].state {
+                grid::PuzzleSquareState::Correct => LetterState::Fixed,
+                grid::PuzzleSquareState::WrongPosition
+                    | grid::PuzzleSquareState::Wrong
+                    => LetterState::Movable,
+            };
+
+            letter_grid.letters[letter_num] = letter;
+        }
+
+        Ok(letter_grid)
+    }
+
     fn set_horizontal_word(
         &mut self,
         line_num: usize,
@@ -459,6 +498,22 @@ mod test {
               IJKLM\n\
               N O P"
                 .parse::<LetterGrid>().unwrap_err().to_string(),
+        );
+    }
+
+    #[test]
+    fn from_grid() {
+        let grid = "ABCDEFGHIJKLMNOPQRSTUbacdefhjklmnoprtuvwxy"
+            .parse::<grid::Grid>().unwrap();
+        let letter_grid = LetterGrid::from_grid(&grid).unwrap();
+
+        assert_eq!(
+            &letter_grid.to_string(),
+            "baCDE\n\
+             F G H\n\
+             IJKLM\n\
+             N O P\n\
+             QRSTU",
         );
     }
 }
