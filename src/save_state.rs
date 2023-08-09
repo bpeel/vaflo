@@ -20,9 +20,7 @@ use super::grid;
 use grid::Grid;
 use std::str::FromStr;
 use std::collections::HashMap;
-
-pub const MAXIMUM_SWAPS: u32 = 15;
-pub const MAXIMUM_STARS: u32 = 5;
+use super::stars::{MAXIMUM_SWAPS, MAXIMUM_STARS};
 
 pub struct SaveState {
     grid: Grid,

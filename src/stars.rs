@@ -14,11 +14,5 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#[cfg(target_arch = "wasm32")]
-mod wasm_game;
-#[cfg(any(target_arch = "wasm32", test))]
-mod grid;
-#[cfg(any(target_arch = "wasm32", test))]
-mod save_state;
-#[cfg(any(target_arch = "wasm32", test))]
-mod stars;
+pub const MAXIMUM_SWAPS: u32 = 15;
+pub const MAXIMUM_STARS: u32 = 5;

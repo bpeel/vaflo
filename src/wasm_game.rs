@@ -19,8 +19,9 @@ use web_sys::console;
 use super::grid;
 use grid::{Grid, WORD_LENGTH, PuzzleSquareState};
 use std::fmt::Write;
+use super::stars::{MAXIMUM_SWAPS, MAXIMUM_STARS};
 use super::save_state;
-use save_state::{MAXIMUM_SWAPS, SaveState};
+use save_state::SaveState;
 use std::collections::HashMap;
 
 const STOP_ANIMATIONS_DELAY: i32 = 250;
@@ -977,7 +978,7 @@ impl Vaflo {
 
         let mut n_stars_element = String::new();
 
-        for n_stars in 0..=save_state::MAXIMUM_STARS {
+        for n_stars in 0..=MAXIMUM_STARS {
             n_stars_element.clear();
             write!(n_stars_element, "stats-{}-stars", n_stars).unwrap();
             self.set_stats_element(
@@ -1001,14 +1002,14 @@ impl Vaflo {
                  \n\
                  Steloj: ",
                 self.swaps_remaining,
-                save_state::MAXIMUM_STARS,
+                MAXIMUM_STARS,
             ).unwrap();
 
             for _ in 0..self.swaps_remaining {
                 results.push('⭐');
             }
 
-            if let Some(dots) = save_state::MAXIMUM_STARS
+            if let Some(dots) = MAXIMUM_STARS
                 .checked_sub(self.swaps_remaining)
             {
                 for _ in 0..dots {
