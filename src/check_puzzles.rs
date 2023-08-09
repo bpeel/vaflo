@@ -33,7 +33,7 @@ use std::{fmt, thread};
 use word_grid::WordGrid;
 use grid_solver::GridSolver;
 use std::io::BufRead;
-use grid::Grid;
+use grid::{Grid, WORD_LENGTH, N_WORDS_ON_AXIS};
 
 enum PuzzleMessageKind {
     GridParseError(grid::GridParseError),
@@ -41,6 +41,7 @@ enum PuzzleMessageKind {
     SolutionCount(usize),
     NoSwapSolutionFound,
     MinimumSwaps(usize),
+    BadWord(String),
 }
 
 struct PuzzleMessage {
@@ -61,6 +62,9 @@ impl fmt::Display for PuzzleMessageKind {
             },
             PuzzleMessageKind::MinimumSwaps(swaps) => {
                 write!(f, "minimum number of swaps is {}", swaps)
+            },
+            PuzzleMessageKind::BadWord(word) => {
+                write!(f, "“{}” is not in the dictionary", word.to_uppercase())
             },
         }
     }
@@ -141,6 +145,37 @@ fn count_solutions(grid: &LetterGrid, dictionary: &Dictionary) -> usize {
     count
 }
 
+fn check_words(
+    dictionary: &Dictionary,
+    puzzle_num: usize,
+    grid: &Grid,
+    tx: &mpsc::Sender<PuzzleMessage>,
+) -> Result<(), mpsc::SendError<PuzzleMessage>> {
+    let horizontal_positions = (0..N_WORDS_ON_AXIS)
+        .map(|word_num| {
+            let start = word_num * WORD_LENGTH * 2;
+            (start..start + WORD_LENGTH).step_by(1)
+        });
+    let vertical_positions = (0..N_WORDS_ON_AXIS)
+        .map(|word_num| {
+            let start = word_num * 2;
+            (start..start + WORD_LENGTH * WORD_LENGTH).step_by(WORD_LENGTH)
+        });
+
+    for positions in horizontal_positions.chain(vertical_positions) {
+        let word = positions.map(|pos| grid.solution.letters[pos]);
+
+        if !dictionary.contains(word.clone()) {
+            tx.send(PuzzleMessage {
+                puzzle_num,
+                kind: PuzzleMessageKind::BadWord(word.collect::<String>()),
+            })?;
+        }
+    }
+
+    Ok(())
+}
+
 fn check_puzzles<'a, I>(
     dictionary: &Dictionary,
     first_puzzle_num: usize,
@@ -163,6 +198,8 @@ where
                 continue;
             },
         };
+
+        check_words(dictionary, puzzle_num, &grid, &tx)?;
 
         match LetterGrid::from_grid(&grid) {
             Ok(letter_grid) => {
