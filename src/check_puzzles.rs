@@ -28,12 +28,13 @@ mod stars;
 use std::process::ExitCode;
 use letter_grid::LetterGrid;
 use dictionary::Dictionary;
-use std::sync::{Arc, mpsc};
+use std::sync::{Arc, mpsc, Mutex};
 use std::{fmt, thread};
 use word_grid::WordGrid;
 use grid_solver::GridSolver;
 use std::io::BufRead;
 use grid::{Grid, WORD_LENGTH, N_WORDS_ON_AXIS};
+use std::collections::VecDeque;
 
 enum PuzzleMessageKind {
     GridParseError(grid::GridParseError),
@@ -47,6 +48,10 @@ enum PuzzleMessageKind {
 struct PuzzleMessage {
     puzzle_num: usize,
     kind: PuzzleMessageKind,
+}
+
+struct PuzzleQueue {
+    jobs: Mutex<VecDeque<(usize, String)>>,
 }
 
 impl fmt::Display for PuzzleMessageKind {
@@ -67,6 +72,12 @@ impl fmt::Display for PuzzleMessageKind {
                 write!(f, "“{}” is not in the dictionary", word.to_uppercase())
             },
         }
+    }
+}
+
+impl PuzzleQueue {
+    fn next(&self) -> Option<(usize, String)> {
+        self.jobs.lock().unwrap().pop_back()
     }
 }
 
@@ -98,9 +109,9 @@ fn load_dictionary() -> Result<Arc<Dictionary>, ()> {
     }
 }
 
-fn load_puzzles() -> Result<Vec<String>, ()> {
+fn load_puzzles() -> Result<VecDeque<(usize, String)>, ()> {
     let filename = "puzzles.txt";
-    let mut puzzles = Vec::new();
+    let mut puzzles = VecDeque::new();
 
     let f = match std::fs::File::open(filename) {
         Ok(f) => f,
@@ -110,7 +121,7 @@ fn load_puzzles() -> Result<Vec<String>, ()> {
         },
     };
 
-    for line in std::io::BufReader::new(f).lines() {
+    for (line_num, line) in std::io::BufReader::new(f).lines().enumerate() {
         let line = match line {
             Ok(line) => line,
             Err(e) => {
@@ -119,7 +130,7 @@ fn load_puzzles() -> Result<Vec<String>, ()> {
             },
         };
 
-        puzzles.push(line);
+        puzzles.push_back((line_num, line));
     }
 
     if puzzles.is_empty() {
@@ -176,18 +187,12 @@ fn check_words(
     Ok(())
 }
 
-fn check_puzzles<'a, I>(
+fn check_puzzles(
     dictionary: &Dictionary,
-    first_puzzle_num: usize,
-    puzzles: I,
+    puzzles: &PuzzleQueue,
     tx: mpsc::Sender<PuzzleMessage>,
-) -> Result<(), mpsc::SendError<PuzzleMessage>>
-where
-    I: IntoIterator<Item = String>
-{
-    for (puzzle_num, puzzle_string) in puzzles.into_iter().enumerate() {
-        let puzzle_num = puzzle_num + first_puzzle_num;
-
+) -> Result<(), mpsc::SendError<PuzzleMessage>> {
+    while let Some((puzzle_num, puzzle_string)) = puzzles.next() {
         let grid = match puzzle_string.parse::<Grid>() {
             Ok(grid) => grid,
             Err(e) => {
@@ -249,33 +254,26 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     };
 
-    let Ok(mut puzzles) = load_puzzles()
+    let Ok(puzzles) = load_puzzles()
     else {
         return ExitCode::FAILURE;
     };
 
+    let n_puzzles = puzzles.len();
+
+    let puzzles = Arc::new(PuzzleQueue { jobs: Mutex::new(puzzles) });
+
     let (tx, rx) = mpsc::channel();
     let n_threads = Into::<usize>::into(
         thread::available_parallelism().unwrap_or(std::num::NonZeroUsize::MIN)
-    ).min(puzzles.len());
-
-    let puzzles_per_thread = (puzzles.len() + n_threads - 1) / n_threads;
+    ).min(n_puzzles);
 
     let handles = (0..n_threads).map(|_| {
-        let n_puzzles = puzzles_per_thread.min(puzzles.len());
-        let first_puzzle = puzzles.len() - n_puzzles;
-        let puzzles = puzzles.drain(first_puzzle..).collect::<Vec<_>>();
+        let puzzles = Arc::clone(&puzzles);
         let tx = tx.clone();
         let dictionary = Arc::clone(&dictionary);
 
-        thread::spawn(move || {
-            check_puzzles(
-                &dictionary,
-                first_puzzle,
-                puzzles,
-                tx
-            )
-        })
+        thread::spawn(move || check_puzzles(&dictionary, &puzzles, tx))
     }).collect::<Vec<_>>();
 
     std::mem::drop(tx);
