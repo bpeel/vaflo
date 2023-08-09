@@ -51,7 +51,12 @@ struct PuzzleMessage {
 }
 
 struct PuzzleQueue {
-    jobs: Mutex<VecDeque<(usize, String)>>,
+    data: Mutex<PuzzleQueueData>,
+}
+
+struct PuzzleQueueData {
+    next_puzzle_num: usize,
+    jobs: VecDeque<String>,
 }
 
 impl fmt::Display for PuzzleMessageKind {
@@ -76,8 +81,25 @@ impl fmt::Display for PuzzleMessageKind {
 }
 
 impl PuzzleQueue {
+    fn new(jobs: VecDeque<String>) -> PuzzleQueue {
+        PuzzleQueue {
+            data: Mutex::new(PuzzleQueueData {
+                next_puzzle_num: 0,
+                jobs,
+            })
+        }
+    }
+
     fn next(&self) -> Option<(usize, String)> {
-        self.jobs.lock().unwrap().pop_back()
+        let mut data = self.data.lock().unwrap();
+
+        data.jobs
+            .pop_front()
+            .map(|job| {
+                let puzzle_num = data.next_puzzle_num;
+                data.next_puzzle_num += 1;
+                (puzzle_num, job)
+            })
     }
 }
 
@@ -109,7 +131,7 @@ fn load_dictionary() -> Result<Arc<Dictionary>, ()> {
     }
 }
 
-fn load_puzzles() -> Result<VecDeque<(usize, String)>, ()> {
+fn load_puzzles() -> Result<VecDeque<String>, ()> {
     let filename = "puzzles.txt";
     let mut puzzles = VecDeque::new();
 
@@ -121,7 +143,7 @@ fn load_puzzles() -> Result<VecDeque<(usize, String)>, ()> {
         },
     };
 
-    for (line_num, line) in std::io::BufReader::new(f).lines().enumerate() {
+    for line in std::io::BufReader::new(f).lines() {
         let line = match line {
             Ok(line) => line,
             Err(e) => {
@@ -130,7 +152,7 @@ fn load_puzzles() -> Result<VecDeque<(usize, String)>, ()> {
             },
         };
 
-        puzzles.push_back((line_num, line));
+        puzzles.push_back(line);
     }
 
     if puzzles.is_empty() {
@@ -261,7 +283,7 @@ fn main() -> ExitCode {
 
     let n_puzzles = puzzles.len();
 
-    let puzzles = Arc::new(PuzzleQueue { jobs: Mutex::new(puzzles) });
+    let puzzles = Arc::new(PuzzleQueue::new(puzzles));
 
     let (tx, rx) = mpsc::channel();
     let n_threads = Into::<usize>::into(
