@@ -14,4 +14,9 @@ files=(
     "pkg/vaflo.js"
 )
 
-tar -jvcf vaflo.tar.bz2 "${files[@]}"
+for x in "${files[@]}"; do
+    dn="dist/$(dirname "$x")"
+    bn="$(basename "$x")"
+    mkdir -p "$dn"
+    cp -v "$x" "$dn/$bn"
+done
