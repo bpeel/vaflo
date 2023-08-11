@@ -265,6 +265,60 @@ impl Statistics {
     pub fn best_streak(&self) -> u32 {
         self.best_streak
     }
+
+    pub fn share_text(
+        &self,
+        puzzle_num: usize,
+        save_state: &SaveState,
+    ) -> String {
+        let mut results = String::new();
+
+        write!(results, "#vaflo{}", puzzle_num + 1).unwrap();
+
+        if save_state.grid.puzzle.is_solved() {
+            write!(
+                results,
+                " {}/{}\n\
+                 \n\
+                 Steloj: ",
+                save_state.swaps_remaining,
+                MAXIMUM_STARS,
+            ).unwrap();
+
+            for _ in 0..save_state.swaps_remaining {
+                results.push('⭐');
+            }
+
+            if let Some(dots) = MAXIMUM_STARS
+                .checked_sub(save_state.swaps_remaining)
+            {
+                for _ in 0..dots {
+                    results.push('🔹')
+                }
+            }
+
+            write!(
+                results,
+                "\n\
+                 Gajnvico: {}",
+                self.current_streak(),
+            ).unwrap();
+        } else {
+            results.push_str(
+                "\n\
+                 \n\
+                 Malsukcesis 😔"
+            );
+        }
+
+        results.push_str(
+            "\n\
+             \n\
+             vaflo.net"
+        );
+
+        results
+    }
 }
 
 #[cfg(test)]
@@ -526,5 +580,28 @@ mod test {
         assert_eq!(statistics.current_streak(), 1);
         assert_eq!(statistics.n_played(), 3);
         assert_eq!(statistics.total_stars(), 4 + 5 + 2);
+    }
+
+    #[test]
+    fn share_text_stars() {
+        let grid = "MORSAUUKROLASDOOURSOJ\
+                    arcdnhfjvlmewpxbukoty"
+            .parse::<Grid>()
+            .unwrap();
+
+        let mut buf = String::new();
+        add_solved(4, 4, &mut buf);
+        let statistics = Statistics::new(&load_save_states(&buf).unwrap());
+
+        for n_stars in 0..=MAXIMUM_STARS {
+            let save_state = SaveState::new(grid.clone(), n_stars);
+
+            let share_text = statistics.share_text(1, &save_state);
+            let n_stars_in_share_text = share_text.chars()
+                .filter(|&ch| ch == '⭐')
+                .count();
+
+            assert_eq!(n_stars_in_share_text, n_stars as usize);
+        }
     }
 }

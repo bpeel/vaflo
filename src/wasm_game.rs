@@ -282,7 +282,7 @@ struct Vaflo {
     animated_letters: Vec<usize>,
     swaps_remaining: u32,
     save_state_dirty: bool,
-    current_streak: u32,
+    statistics: Option<save_state::Statistics>,
     notice_element: Option<web_sys::HtmlElement>,
     notice_closure: Option<Closure::<dyn Fn()>>,
     notice_timeout_handle: Option<i32>,
@@ -341,7 +341,7 @@ impl Vaflo {
             animated_letters: Vec::new(),
             swaps_remaining: save_state.swaps_remaining(),
             save_state_dirty: false,
-            current_streak: 0,
+            statistics: None,
             notice_closure: None,
             notice_element: None,
             notice_timeout_handle: None,
@@ -953,9 +953,9 @@ impl Vaflo {
         let save_states = load_save_states(&self.context);
         let statistics = save_state::Statistics::new(&save_states);
 
-        self.current_streak = statistics.current_streak();
-
         self.show_statistics(&statistics);
+
+        self.statistics = Some(statistics);
 
         self.show_element_as_block("share-button");
     }
@@ -991,53 +991,17 @@ impl Vaflo {
     }
 
     fn share_results(&mut self) {
-        let mut results = String::new();
+        let Some(statistics) = self.statistics.as_ref()
+        else {
+            return;
+        };
 
-        write!(results, "#vaflo{}", self.todays_puzzle + 1).unwrap();
-
-        if self.grid.puzzle.is_solved() {
-            write!(
-                results,
-                " {}/{}\n\
-                 \n\
-                 Steloj: ",
-                self.swaps_remaining,
-                MAXIMUM_STARS,
-            ).unwrap();
-
-            for _ in 0..self.swaps_remaining {
-                results.push('⭐');
-            }
-
-            if let Some(dots) = MAXIMUM_STARS
-                .checked_sub(self.swaps_remaining)
-            {
-                for _ in 0..dots {
-                    results.push('🔹')
-                }
-            }
-
-            write!(
-                results,
-                "\n\
-                 Gajnvico: {}",
-                self.current_streak,
-            ).unwrap();
-        } else {
-            results.push_str(
-                "\n\
-                 \n\
-                 Malsukcesis 😔"
-            );
-        }
-
-        results.push_str(
-            "\n\
-             \n\
-             vaflo.net"
+        let share_text = statistics.share_text(
+            self.todays_puzzle,
+            &SaveState::new(self.grid.clone(), self.swaps_remaining),
         );
 
-        match self.set_clipboard_text(&results) {
+        match self.set_clipboard_text(&share_text) {
             Ok(()) => self.show_notice("Mesaĝo kopiita al la tondujo"),
             Err(e) => console::log_1(&e.into()),
         }
