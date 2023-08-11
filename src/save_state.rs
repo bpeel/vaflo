@@ -18,6 +18,7 @@ use std::fmt;
 use fmt::Write;
 use super::grid;
 use grid::Grid;
+use grid::PuzzleSquareState;
 use std::str::FromStr;
 use std::collections::HashMap;
 use super::stars::{MAXIMUM_SWAPS, MAXIMUM_STARS};
@@ -41,6 +42,16 @@ pub enum LoadSaveStatesError {
     DuplicatePuzzle(usize),
     BadPuzzle(usize, ParseError),
 }
+
+// Positions of the stars in the grid in the share text
+static STAR_POSITIONS: [u32; MAXIMUM_STARS as usize + 1] = [
+    0,
+    1 << 12,
+    (1 << 6) | (1 << 18),
+    (1 << 6) | (1 << 12) | (1 << 18),
+    (1 << 6) | (1 << 8) | (1 << 16) | (1 << 18),
+    (1 << 6) | (1 << 8) | (1 << 12) | (1 << 16) | (1 << 18),
+];
 
 impl SaveState {
     pub fn new(grid: Grid, swaps_remaining: u32) -> SaveState {
@@ -273,49 +284,60 @@ impl Statistics {
     ) -> String {
         let mut results = String::new();
 
-        write!(results, "#vaflo{}", puzzle_num + 1).unwrap();
+        let is_solved = save_state.grid.puzzle.is_solved();
 
-        if save_state.grid.puzzle.is_solved() {
-            write!(
-                results,
-                " {}/{}\n\
-                 \n\
-                 Steloj: ",
-                save_state.swaps_remaining,
-                MAXIMUM_STARS,
-            ).unwrap();
+        write!(results, "#vaflo{} ", puzzle_num + 1).unwrap();
 
-            for _ in 0..save_state.swaps_remaining {
-                results.push('⭐');
-            }
-
-            if let Some(dots) = MAXIMUM_STARS
-                .checked_sub(save_state.swaps_remaining)
-            {
-                for _ in 0..dots {
-                    results.push('🔹')
-                }
-            }
-
-            write!(
-                results,
-                "\n\
-                 Gajnvico: {}",
-                self.current_streak(),
-            ).unwrap();
+        if is_solved {
+            write!(results, "{}", save_state.swaps_remaining).unwrap();
         } else {
-            results.push_str(
-                "\n\
-                 \n\
-                 Malsukcesis 😔"
-            );
+            results.push('X');
         }
 
-        results.push_str(
+        write!(results, "/{}\n\n", MAXIMUM_STARS).unwrap();
+
+        let star_positions = STAR_POSITIONS[
+            if is_solved {
+                save_state.swaps_remaining.min(MAXIMUM_STARS) as usize
+            } else {
+                0
+            }
+        ];
+
+        for y in 0..grid::WORD_LENGTH {
+            for x in 0..grid::WORD_LENGTH {
+                let position = y * grid::WORD_LENGTH + x;
+
+                let ch = if star_positions & (1 << position) != 0 {
+                    '⭐'
+                } else if grid::is_gap_space(x as i32, y as i32) {
+                    '⬜'
+                } else {
+                    match save_state.grid.puzzle.squares[position].state {
+                        PuzzleSquareState::Correct => '🟩',
+                        PuzzleSquareState::WrongPosition
+                            | PuzzleSquareState::Wrong => '⬛',
+                    }
+                };
+
+                results.push(ch);
+            }
+
+            results.push('\n');
+        }
+
+        write!(
+            results,
             "\n\
-             \n\
-             vaflo.net"
-        );
+             {} gajnvico: {}\n\
+             vaflo.net",
+            if is_solved {
+                '🔥'
+            } else {
+                '💔'
+            },
+            self.current_streak(),
+        ).unwrap();
 
         results
     }
@@ -580,6 +602,147 @@ mod test {
         assert_eq!(statistics.current_streak(), 1);
         assert_eq!(statistics.n_played(), 3);
         assert_eq!(statistics.total_stars(), 4 + 5 + 2);
+    }
+
+    fn make_save_states_for_stars(n_stars: usize) -> HashMap<usize, SaveState> {
+        let mut buf = String::new();
+        add_solved(4, n_stars, &mut buf);
+        load_save_states(&buf).unwrap()
+    }
+
+    #[test]
+    fn share_text_solved() {
+        let save_states = make_save_states_for_stars(0);
+        let statistics = Statistics::new(&save_states);
+        let save_state = save_states.values().next().unwrap();
+
+        assert_eq!(
+            "#vaflo5 0/5\n\
+             \n\
+             🟩🟩🟩🟩🟩\n\
+             🟩⬜🟩⬜🟩\n\
+             🟩🟩🟩🟩🟩\n\
+             🟩⬜🟩⬜🟩\n\
+             🟩🟩🟩🟩🟩\n\
+             \n\
+             🔥 gajnvico: 1\n\
+             vaflo.net",
+            &statistics.share_text(4, &save_state)
+        );
+
+        let save_states = make_save_states_for_stars(1);
+        let statistics = Statistics::new(&save_states);
+        let save_state = save_states.values().next().unwrap();
+
+        assert_eq!(
+            "#vaflo5 1/5\n\
+             \n\
+             🟩🟩🟩🟩🟩\n\
+             🟩⬜🟩⬜🟩\n\
+             🟩🟩⭐🟩🟩\n\
+             🟩⬜🟩⬜🟩\n\
+             🟩🟩🟩🟩🟩\n\
+             \n\
+             🔥 gajnvico: 1\n\
+             vaflo.net",
+            &statistics.share_text(4, &save_state)
+        );
+
+        let save_states = make_save_states_for_stars(2);
+        let statistics = Statistics::new(&save_states);
+        let save_state = save_states.values().next().unwrap();
+
+        assert_eq!(
+            "#vaflo5 2/5\n\
+             \n\
+             🟩🟩🟩🟩🟩\n\
+             🟩⭐🟩⬜🟩\n\
+             🟩🟩🟩🟩🟩\n\
+             🟩⬜🟩⭐🟩\n\
+             🟩🟩🟩🟩🟩\n\
+             \n\
+             🔥 gajnvico: 1\n\
+             vaflo.net",
+            &statistics.share_text(4, &save_state)
+        );
+
+        let save_states = make_save_states_for_stars(3);
+        let statistics = Statistics::new(&save_states);
+        let save_state = save_states.values().next().unwrap();
+
+        assert_eq!(
+            "#vaflo5 3/5\n\
+             \n\
+             🟩🟩🟩🟩🟩\n\
+             🟩⭐🟩⬜🟩\n\
+             🟩🟩⭐🟩🟩\n\
+             🟩⬜🟩⭐🟩\n\
+             🟩🟩🟩🟩🟩\n\
+             \n\
+             🔥 gajnvico: 1\n\
+             vaflo.net",
+            &statistics.share_text(4, &save_state)
+        );
+
+        let save_states = make_save_states_for_stars(4);
+        let statistics = Statistics::new(&save_states);
+        let save_state = save_states.values().next().unwrap();
+
+        assert_eq!(
+            "#vaflo5 4/5\n\
+             \n\
+             🟩🟩🟩🟩🟩\n\
+             🟩⭐🟩⭐🟩\n\
+             🟩🟩🟩🟩🟩\n\
+             🟩⭐🟩⭐🟩\n\
+             🟩🟩🟩🟩🟩\n\
+             \n\
+             🔥 gajnvico: 1\n\
+             vaflo.net",
+            &statistics.share_text(4, &save_state)
+        );
+
+        let save_states = make_save_states_for_stars(5);
+        let statistics = Statistics::new(&save_states);
+        let save_state = save_states.values().next().unwrap();
+
+        assert_eq!(
+            "#vaflo5 5/5\n\
+             \n\
+             🟩🟩🟩🟩🟩\n\
+             🟩⭐🟩⭐🟩\n\
+             🟩🟩⭐🟩🟩\n\
+             🟩⭐🟩⭐🟩\n\
+             🟩🟩🟩🟩🟩\n\
+             \n\
+             🔥 gajnvico: 1\n\
+             vaflo.net",
+            &statistics.share_text(4, &save_state)
+        );
+    }
+
+    #[test]
+    fn share_text_failed() {
+        let mut buf = String::new();
+        add_fail(4, &mut buf);
+        let save_states = load_save_states(&buf).unwrap();
+
+        let statistics = Statistics::new(&save_states);
+        let save_state = save_states.values().next().unwrap();
+
+        assert_eq!(
+            "#vaflo5 X/5\n\
+             \n\
+             🟩🟩⬛⬛🟩\n\
+             🟩⬜⬛⬜⬛\n\
+             ⬛⬛⬛⬛🟩\n\
+             ⬛⬜⬛⬜🟩\n\
+             ⬛⬛🟩⬛⬛\n\
+             \n\
+             💔 gajnvico: 0\n\
+             vaflo.net",
+            &statistics.share_text(4, &save_state)
+        );
     }
 
     #[test]
