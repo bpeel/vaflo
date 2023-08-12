@@ -8,6 +8,9 @@ files=(
     "index.html"
     "favicon.ico"
     "puzzles.txt"
+)
+
+included_files=(
     "vaflo.js"
     "vaflo.css"
 )
@@ -17,7 +20,7 @@ pkg_files=(
     "vaflo.js"
 )
 
-for x in "${files[@]}"; do
+for x in "${files[@]}" "${included_files[@]}"; do
     dn="dist/$(dirname "$x")"
     bn="$(basename "$x")"
     mkdir -p "$dn"
@@ -34,3 +37,11 @@ for x in "${pkg_files[@]}"; do
 done
 
 sed -i 's|\./pkg/vaflo\.js|./pkg-'"$pkg_md5"'/vaflo.js|' dist/vaflo.js
+
+for x in "${included_files[@]}"; do
+    md5=$(md5sum "dist/$x" | sed 's/ .*//')
+    new_name=$(echo "$x" | sed 's/\./'"-$md5"'./')
+    mv "dist/$x" "dist/$new_name"
+    re_filename=$(echo "$x" | sed 's/\./\\./g')
+    sed -i s/\""$re_filename"\"/\""$new_name"\"/g dist/index.html
+done
