@@ -51,6 +51,8 @@ features = [
          "EventTarget",
          "DomRect",
          "Storage",
+         "RequestInit",
+         "RequestCache",
 ]
 
 [target."cfg(target_arch = \"wasm32\")".dependencies.js_sys]

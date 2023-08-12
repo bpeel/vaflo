@@ -185,7 +185,13 @@ impl Loader {
             }
         });
 
-        let promise = self.context.window.fetch_with_str(filename);
+        let mut request_init = web_sys::RequestInit::new();
+        request_init.cache(web_sys::RequestCache::NoCache);
+
+        let promise = self.context.window.fetch_with_str_and_init(
+            filename,
+            &request_init,
+        );
 
         let _ = promise.then2(&response_closure, &error_closure);
 
