@@ -61,7 +61,7 @@ impl fmt::Display for LetterGrid {
             let vertical_letter = word_num * 2 + 1;
 
             if vertical_letter < WORD_LENGTH {
-                write!(f, "\n")?;
+                writeln!(f)?;
 
                 for i in 0..N_WORDS_ON_AXIS {
                     self.vertical_letter(i, vertical_letter).fmt(f)?;
@@ -71,7 +71,7 @@ impl fmt::Display for LetterGrid {
                     }
                 }
 
-                write!(f, "\n")?;
+                writeln!(f)?;
             }
         }
 

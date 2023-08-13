@@ -46,7 +46,7 @@ impl fmt::Display for WordGrid {
                 format_letter(f, letter)?;
             }
 
-            write!(f, "\n")?;
+            writeln!(f)?;
 
             let vertical_letter = i * 2 + 1;
 
@@ -58,7 +58,7 @@ impl fmt::Display for WordGrid {
                     }
                 }
 
-                write!(f, "\n")?;
+                writeln!(f)?;
             }
         }
 

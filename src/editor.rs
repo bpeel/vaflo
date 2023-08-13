@@ -701,7 +701,7 @@ fn save_puzzles(puzzles: &[Grid]) {
     let mut writer = std::io::BufWriter::new(f);
 
     for puzzle in puzzles.iter() {
-        if write!(writer, "{}\n", puzzle).is_err() {
+        if writeln!(writer, "{}", puzzle).is_err() {
             return;
         }
     }
