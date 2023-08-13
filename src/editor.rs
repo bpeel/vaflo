@@ -231,7 +231,7 @@ impl Editor {
         grid_x: i32,
         grid_y: i32,
     ) -> Editor {
-        assert!(puzzles.len() > 0);
+        assert!(!puzzles.is_empty());
 
         let mut editor = Editor {
             dictionary,
