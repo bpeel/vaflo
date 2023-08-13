@@ -325,6 +325,17 @@ impl Iterator for WordPositions {
             Some(positions)
         }
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = self.len();
+        (len, Some(len))
+    }
+}
+
+impl std::iter::ExactSizeIterator for WordPositions {
+    fn len(&self) -> usize {
+        N_WORDS_ON_AXIS * 2 - self.word_num
+    }
 }
 
 #[cfg(test)]
@@ -492,12 +503,17 @@ mod test {
         // p r t
         // uvwxy
 
+        assert_eq!(positions.len(), 6);
         assert_eq!(&positions.next().unwrap(), "abcde");
+        assert_eq!(positions.len(), 5);
         assert_eq!(&positions.next().unwrap(), "afkpu");
+        assert_eq!(positions.len(), 4);
         assert_eq!(&positions.next().unwrap(), "klmno");
         assert_eq!(&positions.next().unwrap(), "chmrw");
         assert_eq!(&positions.next().unwrap(), "uvwxy");
+        assert_eq!(positions.len(), 1);
         assert_eq!(&positions.next().unwrap(), "ejoty");
         assert!(positions.next().is_none());
+        assert_eq!(positions.len(), 0);
     }
 }
