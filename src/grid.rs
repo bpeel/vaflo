@@ -187,13 +187,8 @@ impl Grid {
             }
         }
 
-        for i in 0..N_WORDS_ON_AXIS {
-            self.update_square_letters_for_word(
-                i * 2 * WORD_LENGTH..(i * 2 + 1) * WORD_LENGTH,
-            );
-            self.update_square_letters_for_word(
-                (i * 2..i * 2 + WORD_LENGTH * WORD_LENGTH).step_by(WORD_LENGTH),
-            );
+        for word in WordPositions::new() {
+            self.update_square_letters_for_word(word);
         }
     }
 }
@@ -296,6 +291,38 @@ impl fmt::Display for GridParseError {
             GridParseError::TooLong => write!(f, "too long"),
             GridParseError::DuplicateIndex => write!(f, "duplicate index"),
             GridParseError::InvalidIndex => write!(f, "invalid index"),
+        }
+    }
+}
+
+pub struct WordPositions {
+    word_num: usize,
+}
+
+impl WordPositions {
+    pub fn new() -> WordPositions {
+        WordPositions { word_num: 0 }
+    }
+}
+
+impl Iterator for WordPositions {
+    type Item = std::iter::StepBy<std::ops::Range<usize>>;
+
+    fn next(&mut self) -> Option<<WordPositions as Iterator>::Item> {
+        if self.word_num >= N_WORDS_ON_AXIS * 2 {
+            None
+        } else {
+            let i = self.word_num / 2;
+
+            let positions = if self.word_num & 1 == 0 {
+                (i * 2 * WORD_LENGTH..(i * 2 + 1) * WORD_LENGTH).step_by(1)
+            } else {
+                (i * 2..i * 2 + WORD_LENGTH * WORD_LENGTH).step_by(WORD_LENGTH)
+            };
+
+            self.word_num += 1;
+
+            Some(positions)
         }
     }
 }
@@ -448,5 +475,29 @@ mod test {
                 .count(),
             N_LETTERS,
         );
+    }
+
+    #[test]
+    fn word_positions() {
+        let mut positions = WordPositions::new()
+            .map(|positions| {
+                positions.map(|pos| {
+                    char::from_u32(pos as u32 + b'a' as u32).unwrap()
+                }).collect::<String>()
+            });
+
+        // abcde
+        // f h j
+        // klmno
+        // p r t
+        // uvwxy
+
+        assert_eq!(&positions.next().unwrap(), "abcde");
+        assert_eq!(&positions.next().unwrap(), "afkpu");
+        assert_eq!(&positions.next().unwrap(), "klmno");
+        assert_eq!(&positions.next().unwrap(), "chmrw");
+        assert_eq!(&positions.next().unwrap(), "uvwxy");
+        assert_eq!(&positions.next().unwrap(), "ejoty");
+        assert!(positions.next().is_none());
     }
 }

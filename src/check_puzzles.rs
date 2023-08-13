@@ -33,7 +33,7 @@ use std::{fmt, thread};
 use word_grid::WordGrid;
 use grid_solver::GridSolver;
 use std::io::BufRead;
-use grid::{Grid, WORD_LENGTH, N_WORDS_ON_AXIS};
+use grid::Grid;
 use std::collections::VecDeque;
 
 enum PuzzleMessageKind {
@@ -184,18 +184,7 @@ fn check_words(
     grid: &Grid,
     tx: &mpsc::Sender<PuzzleMessage>,
 ) -> Result<(), mpsc::SendError<PuzzleMessage>> {
-    let horizontal_positions = (0..N_WORDS_ON_AXIS)
-        .map(|word_num| {
-            let start = word_num * WORD_LENGTH * 2;
-            (start..start + WORD_LENGTH).step_by(1)
-        });
-    let vertical_positions = (0..N_WORDS_ON_AXIS)
-        .map(|word_num| {
-            let start = word_num * 2;
-            (start..start + WORD_LENGTH * WORD_LENGTH).step_by(WORD_LENGTH)
-        });
-
-    for positions in horizontal_positions.chain(vertical_positions) {
+    for positions in grid::WordPositions::new() {
         let word = positions.map(|pos| grid.solution.letters[pos]);
 
         if !dictionary.contains(word.clone()) {
