@@ -208,18 +208,14 @@ fn draw_grid(
 }
 
 fn minimum_swaps(grid: &Grid) -> Option<usize> {
-    let solution = grid.solution
-        .letters
-        .iter()
-        .map(|&letter| letter)
-        .collect::<Vec<char>>();
     let puzzle = grid.puzzle
         .squares
         .iter()
         .map(|square| grid.solution.letters[square.position])
         .collect::<Vec<char>>();
 
-    swap_solver::solve(&puzzle, &solution).map(|solution| solution.len())
+    swap_solver::solve(&puzzle, &grid.solution.letters)
+        .map(|solution| solution.len())
 }
 
 #[inline(always)]
