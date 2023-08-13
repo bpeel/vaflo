@@ -110,9 +110,9 @@ impl PuzzleGrid {
     }
 
     pub fn is_solved(&self) -> bool {
-        self.squares.iter().find(|square| {
+        !self.squares.iter().any(|square| {
             square.state != PuzzleSquareState::Correct
-        }).is_none()
+        })
     }
 }
 

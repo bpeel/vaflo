@@ -82,12 +82,11 @@ impl<'a> GridSolver<'a> {
                 // intersecting word be fixed.
                 if entry.grid.words()
                     .iter()
-                    .find(|w| {
+                    .any(|w| {
                         !self.dictionary.contains(
                             w.letters.iter().map(|l| l.unwrap())
                         )
                     })
-                    .is_some()
                 {
                     continue;
                 } else {
