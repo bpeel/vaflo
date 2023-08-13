@@ -17,7 +17,7 @@
 use std::fmt;
 
 use super::letter_grid::{LetterGrid, LetterState};
-use super::grid::{WORD_LENGTH, N_WORDS_ON_AXIS};
+use super::grid::{WORD_LENGTH, N_WORDS_ON_AXIS, N_WORDS};
 
 #[derive(Debug, Clone)]
 pub struct Word {
@@ -28,7 +28,7 @@ const DEFAULT_WORD: Word = Word { letters: [None; WORD_LENGTH] };
 
 #[derive(Debug, Clone)]
 pub struct WordGrid {
-    words: [Word; N_WORDS_ON_AXIS * 2],
+    words: [Word; N_WORDS],
     spare_letters: Vec<char>,
 }
 
@@ -75,7 +75,7 @@ impl fmt::Display for WordGrid {
 impl WordGrid {
     pub fn new(original_grid: &LetterGrid) -> WordGrid {
         let mut grid = WordGrid {
-            words: [DEFAULT_WORD; N_WORDS_ON_AXIS * 2],
+            words: [DEFAULT_WORD; N_WORDS],
             spare_letters: Vec::new(),
         };
 
@@ -154,7 +154,7 @@ impl WordGrid {
     }
 
     pub fn vertical_words(&self) -> &[Word] {
-        &self.words[N_WORDS_ON_AXIS..N_WORDS_ON_AXIS * 2]
+        &self.words[N_WORDS_ON_AXIS..N_WORDS]
     }
 
     pub fn spare_letters(&self) -> &[char] {
@@ -166,7 +166,7 @@ impl WordGrid {
     }
 
     fn vertical_words_mut(&mut self) -> &mut [Word] {
-        &mut self.words[N_WORDS_ON_AXIS..N_WORDS_ON_AXIS * 2]
+        &mut self.words[N_WORDS_ON_AXIS..N_WORDS]
     }
 }
 

@@ -16,6 +16,7 @@
 
 pub const WORD_LENGTH: usize = 5;
 pub const N_WORDS_ON_AXIS: usize = (WORD_LENGTH + 1) / 2;
+pub const N_WORDS: usize = N_WORDS_ON_AXIS * 2;
 // The number of letters not at an intersection per word
 pub const N_SPACING_LETTERS: usize = WORD_LENGTH - N_WORDS_ON_AXIS;
 // Total number of letters in the grid
@@ -310,7 +311,7 @@ impl Iterator for WordPositions {
     type Item = std::iter::StepBy<std::ops::Range<usize>>;
 
     fn next(&mut self) -> Option<<WordPositions as Iterator>::Item> {
-        if self.word_num >= N_WORDS_ON_AXIS * 2 {
+        if self.word_num >= N_WORDS {
             None
         } else {
             let i = self.word_num / 2;
@@ -330,7 +331,7 @@ impl Iterator for WordPositions {
     fn nth(&mut self, n: usize) -> Option<<WordPositions as Iterator>::Item> {
         self.word_num = self.word_num
             .saturating_add(n)
-            .min(N_WORDS_ON_AXIS * 2);
+            .min(N_WORDS);
         self.next()
     }
 
@@ -342,7 +343,7 @@ impl Iterator for WordPositions {
 
 impl std::iter::ExactSizeIterator for WordPositions {
     fn len(&self) -> usize {
-        N_WORDS_ON_AXIS * 2 - self.word_num
+        N_WORDS - self.word_num
     }
 }
 

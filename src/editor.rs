@@ -26,7 +26,7 @@ mod grid;
 
 use std::process::ExitCode;
 use letter_grid::LetterGrid;
-use grid::{WORD_LENGTH, N_WORDS_ON_AXIS, N_LETTERS};
+use grid::{WORD_LENGTH, N_WORDS_ON_AXIS, N_LETTERS, N_WORDS};
 use dictionary::Dictionary;
 use std::ffi::c_int;
 use std::sync::{Arc, mpsc};
@@ -68,7 +68,7 @@ struct Editor {
     cursor_y: i32,
     edit_direction: EditDirection,
     current_grid: GridChoice,
-    words: [Word; N_WORDS_ON_AXIS * 2],
+    words: [Word; N_WORDS],
     selected_position: Option<usize>,
     grid_id: usize,
     solutions: Vec<WordGrid>,
