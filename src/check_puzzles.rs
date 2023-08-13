@@ -161,7 +161,7 @@ fn load_puzzles() -> Result<VecDeque<String>, ()> {
 
 fn count_solutions(grid: &LetterGrid, dictionary: &Dictionary) -> usize {
     let mut solver = GridSolver::new(
-        WordGrid::new(&grid),
+        WordGrid::new(grid),
         dictionary,
     );
 

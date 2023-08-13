@@ -264,7 +264,7 @@ impl Editor {
         let grid = &self.puzzles[self.current_puzzle];
 
         draw_grid(
-            &grid,
+            grid,
             self.grid_x,
             self.grid_y,
             self.selected_position
