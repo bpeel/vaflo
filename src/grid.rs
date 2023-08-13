@@ -295,6 +295,7 @@ impl fmt::Display for GridParseError {
     }
 }
 
+#[derive(Clone)]
 pub struct WordPositions {
     word_num: usize,
 }
@@ -324,6 +325,13 @@ impl Iterator for WordPositions {
 
             Some(positions)
         }
+    }
+
+    fn nth(&mut self, n: usize) -> Option<<WordPositions as Iterator>::Item> {
+        self.word_num = self.word_num
+            .saturating_add(n)
+            .min(N_WORDS_ON_AXIS * 2);
+        self.next()
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -490,12 +498,14 @@ mod test {
 
     #[test]
     fn word_positions() {
-        let mut positions = WordPositions::new()
+        let base_positions = WordPositions::new()
             .map(|positions| {
                 positions.map(|pos| {
                     char::from_u32(pos as u32 + b'a' as u32).unwrap()
                 }).collect::<String>()
             });
+
+        let mut positions = base_positions.clone();
 
         // abcde
         // f h j
@@ -515,5 +525,12 @@ mod test {
         assert_eq!(&positions.next().unwrap(), "ejoty");
         assert!(positions.next().is_none());
         assert_eq!(positions.len(), 0);
+
+        let mut positions = base_positions.clone();
+
+        assert_eq!(&positions.nth(0).unwrap(), "abcde");
+        assert_eq!(&positions.nth(1).unwrap(), "klmno");
+        assert_eq!(&positions.nth(2).unwrap(), "ejoty");
+        assert!(WordPositions::new().nth(6).is_none());
     }
 }
