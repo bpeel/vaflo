@@ -167,7 +167,7 @@ fn count_solutions(grid: &LetterGrid, dictionary: &Dictionary) -> usize {
 
     let mut count = 0;
 
-    while let Some(_) = solver.next() {
+    while solver.next().is_some() {
         count += 1;
     }
 
