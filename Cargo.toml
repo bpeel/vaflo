@@ -27,6 +27,10 @@ path = "src/editor.rs"
 name = "check-puzzles"
 path = "src/check_puzzles.rs"
 
+[[bin]]
+name = "dump-words"
+path = "src/dump_words.rs"
+
 [target."cfg(target_arch = \"wasm32\")".dependencies.wasm_bindgen]
 package = "wasm-bindgen"
 version = "0.2.87"
