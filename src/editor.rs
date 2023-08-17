@@ -26,7 +26,7 @@ mod grid;
 
 use std::process::ExitCode;
 use letter_grid::LetterGrid;
-use grid::{WORD_LENGTH, N_WORDS_ON_AXIS, N_LETTERS, N_WORDS};
+use grid::{WORD_LENGTH, N_LETTERS, N_WORDS};
 use dictionary::Dictionary;
 use std::ffi::c_int;
 use std::sync::{Arc, mpsc};
@@ -537,24 +537,14 @@ impl Editor {
     }
 
     fn update_words(&mut self) {
-        for word in 0..N_WORDS_ON_AXIS {
-            let grid = &self.puzzles[self.current_puzzle];
+        let grid = &self.puzzles[self.current_puzzle];
 
-            let horizontal = &mut self.words[word];
-            horizontal.text.clear();
-            horizontal.text.extend((0..WORD_LENGTH).map(|pos| {
-                grid.solution.letters[pos + word * WORD_LENGTH * 2]
-            }));
-
-            let vertical = &mut self.words[word + N_WORDS_ON_AXIS];
-            vertical.text.clear();
-            vertical.text.extend((0..WORD_LENGTH).map(|pos| {
-                grid.solution.letters[pos * WORD_LENGTH + word * 2]
-            }));
-        }
-
-        for word in self.words.iter_mut() {
+        for (word_num, positions) in grid::WordPositions::new().enumerate() {
+            let word = &mut self.words[word_num];
+            word.text.clear();
+            word.text.extend(positions.map(|pos| grid.solution.letters[pos]));
             word.valid = self.dictionary.contains(word.text.chars());
+
         }
     }
 
