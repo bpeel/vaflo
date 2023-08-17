@@ -34,7 +34,7 @@ use word_grid::WordGrid;
 use grid_solver::GridSolver;
 use std::io::BufRead;
 use grid::Grid;
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque, hash_map};
 
 enum PuzzleMessageKind {
     GridParseError(grid::GridParseError),
@@ -43,6 +43,7 @@ enum PuzzleMessageKind {
     NoSwapSolutionFound,
     MinimumSwaps(usize),
     BadWord(String),
+    DuplicateWord(String),
 }
 
 struct PuzzleMessage {
@@ -75,6 +76,9 @@ impl fmt::Display for PuzzleMessageKind {
             },
             PuzzleMessageKind::BadWord(word) => {
                 write!(f, "“{}” is not in the dictionary", word.to_uppercase())
+            },
+            PuzzleMessageKind::DuplicateWord(word) => {
+                write!(f, "“{}” appears more than once", word.to_uppercase())
             },
         }
     }
@@ -180,14 +184,35 @@ fn check_words(
     grid: &Grid,
     tx: &mpsc::Sender<PuzzleMessage>,
 ) -> Result<(), mpsc::SendError<PuzzleMessage>> {
-    for positions in grid::WordPositions::new() {
-        let word = positions.map(|pos| grid.solution.letters[pos]);
+    let mut words = HashMap::new();
 
-        if !dictionary.contains(word.clone()) {
-            tx.send(PuzzleMessage {
-                puzzle_num,
-                kind: PuzzleMessageKind::BadWord(word.collect::<String>()),
-            })?;
+    for positions in grid::WordPositions::new() {
+        let word_chars = positions.map(|pos| grid.solution.letters[pos]);
+        let word = || { word_chars.clone().collect::<String>() };
+
+        match words.entry(word()) {
+            hash_map::Entry::Occupied(entry) => {
+                let counter = entry.into_mut();
+
+                if *counter == 1 {
+                    tx.send(PuzzleMessage {
+                        puzzle_num,
+                        kind: PuzzleMessageKind::DuplicateWord(word()),
+                    })?;
+                }
+
+                *counter += 1;
+            },
+            hash_map::Entry::Vacant(entry) => {
+                if !dictionary.contains(word_chars.clone()) {
+                    tx.send(PuzzleMessage {
+                        puzzle_num,
+                        kind: PuzzleMessageKind::BadWord(word()),
+                    })?;
+                }
+
+                entry.insert(1);
+            },
         }
     }
 
