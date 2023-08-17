@@ -50,9 +50,17 @@ enum GridChoice {
     Puzzle,
 }
 
+#[derive(Default, Eq, PartialEq)]
+enum WordState {
+    #[default]
+    Invalid,
+    Duplicate,
+    Valid,
+}
+
 #[derive(Default)]
 struct Word {
-    valid: bool,
+    state: WordState,
     text: String,
 }
 
@@ -298,10 +306,10 @@ impl Editor {
             );
             ncurses::addch(' ' as u32);
             ncurses::addstr(
-                if word.valid {
-                    "✅"
-                } else {
-                    "❌"
+                match word.state {
+                    WordState::Valid => "✅",
+                    WordState::Duplicate => "♻️",
+                    WordState::Invalid => "❌",
                 }
             );
         }
@@ -543,8 +551,24 @@ impl Editor {
             let word = &mut self.words[word_num];
             word.text.clear();
             word.text.extend(positions.map(|pos| grid.solution.letters[pos]));
-            word.valid = self.dictionary.contains(word.text.chars());
 
+            let state = 'find_duplicate: {
+                let word = &self.words[word_num];
+
+                for other_word in &self.words[0..word_num] {
+                    if &word.text == &other_word.text {
+                        break 'find_duplicate WordState::Duplicate;
+                    }
+                }
+
+                if self.dictionary.contains(word.text.chars()) {
+                    WordState::Valid
+                } else {
+                    WordState::Invalid
+                }
+            };
+
+            self.words[word_num].state = state;
         }
     }
 
