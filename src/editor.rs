@@ -37,6 +37,7 @@ use grid_solver::GridSolver;
 use std::io::{BufRead, Write};
 use rand::Rng;
 use grid::{Grid, SolutionGrid, PuzzleGrid, PuzzleSquareState};
+use word_counter::WordCounter;
 
 // Number of swaps to make when shuffling the puzzle
 const N_SHUFFLE_SWAPS: usize = 10;
@@ -83,6 +84,7 @@ struct Editor {
     solutions: Vec<WordGrid>,
     had_all_solutions: bool,
     shortest_swap_solution: Option<usize>,
+    word_counter: WordCounter,
 }
 
 enum SolutionEventKind {
@@ -260,9 +262,11 @@ impl Editor {
             solutions: Vec::new(),
             had_all_solutions: false,
             shortest_swap_solution: None,
+            word_counter: WordCounter::new(),
         };
 
         editor.update_words();
+        editor.update_word_counts();
         editor.send_grid();
 
         editor
@@ -297,23 +301,7 @@ impl Editor {
             self.puzzles.len(),
         ));
 
-        ncurses::mvaddstr(self.grid_y + 2, right_side, "Words:");
-
-        for (i, word) in self.words.iter().enumerate() {
-            ncurses::mvaddstr(
-                self.grid_y + 3 + i as i32,
-                right_side,
-                &word.text,
-            );
-            ncurses::addch(' ' as u32);
-            ncurses::addstr(
-                match word.state {
-                    WordState::Valid => "✅",
-                    WordState::Duplicate => "♻️",
-                    WordState::Invalid => "❌",
-                }
-            );
-        }
+        self.draw_words(right_side, self.grid_y + 2);
 
         let mut y = self.grid_y + WORD_LENGTH as i32 + 3;
 
@@ -378,6 +366,30 @@ impl Editor {
         self.position_cursor();
 
         ncurses::refresh();
+    }
+
+    fn draw_words(&self, x: i32, y: i32) {
+        ncurses::mvaddstr(y, x, "Words:");
+
+        for (i, word) in self.words.iter().enumerate() {
+            ncurses::mvaddstr(
+                y + 1 + i as i32,
+                x,
+                &word.text,
+            );
+            ncurses::addch(' ' as u32);
+            ncurses::addstr(
+                match word.state {
+                    WordState::Valid => "✅",
+                    WordState::Duplicate => "♻️",
+                    WordState::Invalid => "❌",
+                }
+            );
+
+            for (word, count) in self.word_counter.counts(&word.text) {
+                ncurses::addstr(&format!(" {}({})", word, count));
+            }
+        }
     }
 
     fn position_cursor(&self) {
@@ -612,6 +624,7 @@ impl Editor {
             assert!(puzzle_num < self.puzzles.len());
             self.current_puzzle = puzzle_num;
             self.update_words();
+            self.update_word_counts();
             self.send_grid();
             self.redraw();
         }
@@ -634,6 +647,21 @@ impl Editor {
         grid.update_square_states();
         self.send_grid();
         self.redraw();
+    }
+
+    fn update_word_counts(&mut self) {
+        self.word_counter.clear();
+
+        for (puzzle_num, puzzle) in self.puzzles.iter().enumerate() {
+            if puzzle_num == self.current_puzzle {
+                continue;
+            }
+
+            for positions in grid::WordPositions::new() {
+                let word = positions.map(|pos| puzzle.solution.letters[pos]);
+                self.word_counter.push(word);
+            }
+        }
     }
 }
 
