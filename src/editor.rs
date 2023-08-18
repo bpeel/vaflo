@@ -23,6 +23,7 @@ mod permute;
 mod pairs;
 mod swap_solver;
 mod grid;
+mod word_counter;
 
 use std::process::ExitCode;
 use letter_grid::LetterGrid;
