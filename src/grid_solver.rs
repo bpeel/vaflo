@@ -17,6 +17,7 @@
 use super::dictionary::Dictionary;
 use super::{word_grid, word_solver};
 use word_grid::WordGrid;
+use super::letter_grid::LetterState;
 
 pub struct GridSolver<'a> {
     dictionary: &'a Dictionary,
@@ -49,7 +50,10 @@ impl<'a> GridSolver<'a> {
             .map(|w| {
                 (
                     w,
-                    w.letters.iter().filter(|l| l.is_none()).count(),
+                    w.letters
+                        .iter()
+                        .filter(|l| l.state == LetterState::Movable)
+                        .count(),
                 )
             })
             .enumerate()
@@ -84,7 +88,7 @@ impl<'a> GridSolver<'a> {
                     .iter()
                     .any(|w| {
                         !self.dictionary.contains(
-                            w.letters.iter().map(|l| l.unwrap())
+                            w.letters.iter().map(|l| l.value)
                         )
                     })
                 {

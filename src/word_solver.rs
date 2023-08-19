@@ -17,6 +17,7 @@
 use super::dictionary::Dictionary;
 use super::permute;
 use super::word_grid::Word;
+use super::letter_grid::LetterState;
 
 pub struct Iter<'a> {
     dictionary: &'a Dictionary,
@@ -32,14 +33,17 @@ impl<'a> Iter<'a> {
         template: Word,
         mut spare_letters: Vec<char>,
     ) -> Iter<'a> {
-        let n_gaps = template.letters.iter().filter(|l| l.is_none()).count();
+        let n_movable = template.letters
+            .iter()
+            .filter(|l| l.state == LetterState::Movable)
+            .count();
 
         // Sort the letters to make it easier to detect duplicate permutations
         spare_letters.sort_unstable();
 
         Iter {
             dictionary,
-            permuter: permute::Iter::new(spare_letters.len(), n_gaps),
+            permuter: permute::Iter::new(spare_letters.len(), n_movable),
             spare_letters,
             template,
             result_buf: String::new(),
@@ -57,12 +61,12 @@ impl<'a> Iter<'a> {
             let mut chosen_letters = chosen_letters.iter();
 
             for letter in self.template.letters.iter() {
-                match letter {
-                    None => {
+                match letter.state {
+                    LetterState::Movable => {
                         let index = *chosen_letters.next().unwrap();
                         self.result_buf.push(self.spare_letters[index]);
                     },
-                    Some(letter) => self.result_buf.push(*letter),
+                    LetterState::Fixed => self.result_buf.push(letter.value),
                 }
             }
 

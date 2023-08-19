@@ -62,7 +62,7 @@ fn word_grid_to_array(grid: &word_grid::WordGrid) -> Vec<char> {
         let word = &grid.horizontal_words()[word_num];
 
         for letter_num in 0..WORD_LENGTH {
-            letters.push(word.letters[letter_num].unwrap());
+            letters.push(word.letters[letter_num].value);
         }
 
         let letter_num = word_num * 2 + 1;
@@ -70,7 +70,7 @@ fn word_grid_to_array(grid: &word_grid::WordGrid) -> Vec<char> {
         if letter_num < WORD_LENGTH {
             for word_num in 0..N_WORDS_ON_AXIS {
                 let word = &grid.vertical_words()[word_num];
-                letters.push(word.letters[letter_num].unwrap());
+                letters.push(word.letters[letter_num].value);
             }
         }
     }

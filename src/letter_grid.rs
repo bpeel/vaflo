@@ -46,7 +46,7 @@ pub enum ParseError {
     TooManyLines,
 }
 
-const DEFAULT_LETTER: Letter = Letter {
+pub const DEFAULT_LETTER: Letter = Letter {
     value: 'a',
     state: LetterState::Movable,
 };
