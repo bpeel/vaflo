@@ -24,6 +24,7 @@ mod pairs;
 mod swap_solver;
 mod grid;
 mod word_counter;
+mod stem_word;
 
 use std::process::ExitCode;
 use letter_grid::LetterGrid;

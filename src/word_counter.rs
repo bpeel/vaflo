@@ -15,24 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use std::collections::HashMap;
-
-static SUFFIXES: [&'static str; 15] = [
-    "AJN",
-    "OJN",
-    "AN",
-    "ON",
-    "AJ",
-    "OJ",
-    "IS",
-    "AS",
-    "US",
-    "OS",
-    "U",
-    "O",
-    "I",
-    "A",
-    "E",
-];
+use super::stem_word;
 
 struct WordEntry {
     word: String,
@@ -41,10 +24,6 @@ struct WordEntry {
 
 pub struct WordCounter {
     words: HashMap<String, Vec<WordEntry>>,
-}
-
-fn stem_word(word: &str) -> &str {
-    SUFFIXES.iter().find_map(|suffix| word.strip_suffix(suffix)).unwrap_or(word)
 }
 
 fn add_entry_to_vec<I>(words: &mut Vec<WordEntry>, word: I)
@@ -67,7 +46,7 @@ impl WordCounter {
         I: Iterator<Item = char> + Clone
     {
         let mut stem = word.clone().collect::<String>();
-        let stem_length = stem_word(&stem).len();
+        let stem_length = stem_word::stem(&stem).len();
         stem.truncate(stem_length);
 
         let insert_word = word.clone();
@@ -91,7 +70,7 @@ impl WordCounter {
     }
 
     pub fn counts(&self, word: &str) -> WordCounts {
-        let entries = self.words.get(stem_word(word))
+        let entries = self.words.get(stem_word::stem(word))
             .map(|entries| entries.iter())
             .unwrap_or_else(|| [].iter());
 
