@@ -51,7 +51,7 @@ impl<'a> Iter<'a> {
     }
 
     pub fn next(&mut self) -> Option<&str> {
-        while let Some(chosen_letters) = self.permuter.next() {
+        'permutation: while let Some(chosen_letters) = self.permuter.next() {
             if !is_unique_permutation(&self.spare_letters, chosen_letters) {
                 continue;
             }
@@ -64,6 +64,12 @@ impl<'a> Iter<'a> {
                 match letter.state {
                     LetterState::Movable => {
                         let index = *chosen_letters.next().unwrap();
+                        let ch = self.spare_letters[index];
+                        // Don’t accept permutations that don’t change
+                        // the value of a movable letter
+                        if letter.value == ch {
+                            continue 'permutation;
+                        }
                         self.result_buf.push(self.spare_letters[index]);
                     },
                     LetterState::Fixed => self.result_buf.push(letter.value),
