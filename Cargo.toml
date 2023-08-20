@@ -13,7 +13,7 @@ crate-type = ["cdylib"]
 
 [[bin]]
 name = "solve-waffle"
-path = "src/main.rs"
+path = "src/solve_waffle.rs"
 
 [[bin]]
 name = "solve-swap"
