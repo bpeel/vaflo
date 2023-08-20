@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-static SUFFIXES: [&'static str; 15] = [
+static SUFFIXES: [&'static str; 16] = [
     "AJN",
     "OJN",
     "AN",
@@ -25,6 +25,7 @@ static SUFFIXES: [&'static str; 15] = [
     "AS",
     "US",
     "OS",
+    "EN",
     "U",
     "O",
     "I",
