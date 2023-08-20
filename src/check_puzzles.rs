@@ -24,6 +24,7 @@ mod pairs;
 mod swap_solver;
 mod grid;
 mod stars;
+mod stem_word;
 
 use std::process::ExitCode;
 use letter_grid::LetterGrid;
@@ -190,7 +191,11 @@ fn check_words(
         let word_chars = positions.map(|pos| grid.solution.letters[pos]);
         let word = || { word_chars.clone().collect::<String>() };
 
-        match words.entry(word()) {
+        let mut stem = word();
+        let stem_len = stem_word::stem(&stem).len();
+        stem.truncate(stem_len);
+
+        match words.entry(stem) {
             hash_map::Entry::Occupied(entry) => {
                 let counter = entry.into_mut();
 
