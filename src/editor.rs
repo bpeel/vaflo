@@ -568,9 +568,10 @@ impl Editor {
 
             let state = 'find_duplicate: {
                 let word = &self.words[word_num];
+                let stem = stem_word::stem(&word.text);
 
                 for other_word in &self.words[0..word_num] {
-                    if &word.text == &other_word.text {
+                    if stem == stem_word::stem(&other_word.text) {
                         break 'find_duplicate WordState::Duplicate;
                     }
                 }
