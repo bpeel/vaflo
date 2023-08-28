@@ -25,13 +25,14 @@ mod swap_solver;
 mod grid;
 mod word_counter;
 mod stem_word;
+mod solver_state;
 
 use std::process::ExitCode;
 use letter_grid::LetterGrid;
 use grid::{WORD_LENGTH, N_LETTERS, N_WORDS};
 use dictionary::Dictionary;
 use std::ffi::c_int;
-use std::sync::{Arc, mpsc, Mutex, Condvar};
+use std::sync::{Arc, mpsc};
 use std::thread;
 use word_grid::WordGrid;
 use grid_solver::GridSolver;
@@ -39,6 +40,7 @@ use std::io::{BufRead, Write};
 use rand::Rng;
 use grid::{Grid, SolutionGrid, PuzzleGrid, PuzzleSquareState};
 use word_counter::WordCounter;
+use solver_state::{SolverState, SolverStatePair};
 
 // Number of swaps to make when shuffling the puzzle
 const N_SHUFFLE_SWAPS: usize = 10;
@@ -97,48 +99,6 @@ enum SolutionEventKind {
 struct SolutionEvent {
     id: usize,
     kind: SolutionEventKind,
-}
-
-enum SolverState {
-    Idle,
-    Task { grid_id: usize, grid: Grid },
-    Quit,
-}
-
-struct SolverStatePair {
-    state: Mutex<SolverState>,
-    condvar: Condvar,
-}
-
-impl SolverStatePair {
-    fn wait(&self, completed_grid_id: Option<usize>) -> SolverState {
-        let mut state = self.state.lock().unwrap();
-
-        loop {
-            match *state {
-                SolverState::Idle => state = self.condvar.wait(state).unwrap(),
-                SolverState::Task { grid_id, ref grid } => {
-                    if completed_grid_id.map(|id| id < grid_id)
-                        .unwrap_or(true)
-                    {
-                        break SolverState::Task {
-                            grid_id,
-                            grid: grid.clone(),
-                        };
-                    } else {
-                        state = self.condvar.wait(state).unwrap();
-                    }
-                },
-                SolverState::Quit => break SolverState::Quit,
-            }
-        }
-    }
-
-    fn set_grid(&self, grid_id: usize, grid: Grid) {
-        let mut state = self.state.lock().unwrap();
-        *state = SolverState::Task { grid_id, grid };
-        self.condvar.notify_all();
-    }
 }
 
 struct SolverThread {
@@ -909,10 +869,7 @@ impl SolverThread {
         );
         let swap_event_sender = EventSender::new(event_sender, wakeup_fd);
 
-        let solver_state = Arc::new(SolverStatePair {
-            state: Mutex::new(SolverState::Idle),
-            condvar: Condvar::new(),
-        });
+        let solver_state = Arc::new(SolverStatePair::new());
         let word_solver_state = Arc::clone(&solver_state);
         let swap_solver_state = Arc::clone(&solver_state);
 
@@ -1001,8 +958,7 @@ impl SolverThread {
             solver_state,
         } = self;
 
-        *solver_state.state.lock().unwrap() = SolverState::Quit;
-        solver_state.condvar.notify_all();
+        solver_state.quit();
 
         // Drop the mpsc so that the thread will quit if it tries to send
         std::mem::drop(event_receiver);
