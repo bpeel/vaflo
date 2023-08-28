@@ -31,7 +31,7 @@ use letter_grid::LetterGrid;
 use grid::{WORD_LENGTH, N_LETTERS, N_WORDS};
 use dictionary::Dictionary;
 use std::ffi::c_int;
-use std::sync::{Arc, mpsc};
+use std::sync::{Arc, mpsc, Mutex, Condvar};
 use std::thread;
 use word_grid::WordGrid;
 use grid_solver::GridSolver;
@@ -69,7 +69,7 @@ struct Word {
 
 struct Editor {
     dictionary: Arc<Dictionary>,
-    grid_senders: Vec<mpsc::Sender<(usize, Grid)>>,
+    solver_state: Arc<SolverStatePair>,
     should_quit: bool,
     grid_x: i32,
     grid_y: i32,
@@ -99,11 +99,52 @@ struct SolutionEvent {
     kind: SolutionEventKind,
 }
 
+enum SolverState {
+    Idle,
+    Task { grid_id: usize, grid: Grid },
+    Quit,
+}
+
+struct SolverStatePair {
+    state: Mutex<SolverState>,
+    condvar: Condvar,
+}
+
+impl SolverStatePair {
+    fn wait(&self, completed_grid_id: Option<usize>) -> SolverState {
+        let mut state = self.state.lock().unwrap();
+
+        loop {
+            match *state {
+                SolverState::Idle => state = self.condvar.wait(state).unwrap(),
+                SolverState::Task { grid_id, ref grid } => {
+                    if completed_grid_id.map(|id| id < grid_id)
+                        .unwrap_or(true)
+                    {
+                        break SolverState::Task {
+                            grid_id,
+                            grid: grid.clone(),
+                        };
+                    } else {
+                        state = self.condvar.wait(state).unwrap();
+                    }
+                },
+                SolverState::Quit => break SolverState::Quit,
+            }
+        }
+    }
+
+    fn set_grid(&self, grid_id: usize, grid: Grid) {
+        let mut state = self.state.lock().unwrap();
+        *state = SolverState::Task { grid_id, grid };
+        self.condvar.notify_all();
+    }
+}
+
 struct SolverThread {
     word_join_handle: thread::JoinHandle<()>,
-    word_grid_sender: mpsc::Sender<(usize, Grid)>,
     swap_join_handle: thread::JoinHandle<()>,
-    swap_grid_sender: mpsc::Sender<(usize, Grid)>,
+    solver_state: Arc<SolverStatePair>,
     event_receiver: mpsc::Receiver<SolutionEvent>,
 }
 
@@ -239,7 +280,7 @@ impl Editor {
     fn new(
         puzzles: Vec<Grid>,
         dictionary: Arc<Dictionary>,
-        grid_senders: Vec<mpsc::Sender<(usize, Grid)>>,
+        solver_state: Arc<SolverStatePair>,
         grid_x: i32,
         grid_y: i32,
     ) -> Editor {
@@ -247,7 +288,7 @@ impl Editor {
 
         let mut editor = Editor {
             dictionary,
-            grid_senders,
+            solver_state,
             should_quit: false,
             grid_x,
             grid_y,
@@ -616,9 +657,7 @@ impl Editor {
 
         let grid = self.puzzles[self.current_puzzle].clone();
 
-        for grid_sender in self.grid_senders.iter() {
-            let _ = grid_sender.send((self.grid_id, grid.clone()));
-        }
+        self.solver_state.set_grid(self.grid_id, grid);
     }
 
     fn set_current_puzzle(&mut self, puzzle_num: usize) {
@@ -825,26 +864,6 @@ impl SolutionEvent {
     }
 }
 
-struct SkipReceiverIter<T> {
-    receiver: mpsc::Receiver<T>,
-}
-
-impl<T> SkipReceiverIter<T> {
-    fn new(receiver: mpsc::Receiver<T>) -> Self {
-        SkipReceiverIter { receiver }
-    }
-}
-
-impl<T> Iterator for SkipReceiverIter<T> {
-    type Item = T;
-
-    fn next(&mut self) -> Option<T> {
-        self.receiver.try_iter().last().or_else(|| {
-            self.receiver.recv().ok()
-        })
-    }
-}
-
 struct EventSender {
     sender: mpsc::Sender<SolutionEvent>,
     wakeup_fd: c_int,
@@ -882,10 +901,6 @@ impl SolverThread {
         dictionary: Arc<Dictionary>,
         wakeup_fd: c_int,
     ) -> SolverThread {
-        let (word_grid_sender, word_grid_receiver) =
-            mpsc::channel::<(usize, Grid)>();
-        let (swap_grid_sender, swap_grid_receiver) =
-            mpsc::channel::<(usize, Grid)>();
         let (event_sender, event_receiver) = mpsc::channel();
 
         let word_event_sender = EventSender::new(
@@ -894,10 +909,27 @@ impl SolverThread {
         );
         let swap_event_sender = EventSender::new(event_sender, wakeup_fd);
 
-        let word_join_handle = thread::spawn(move || {
-            let skip_receiver = SkipReceiverIter::new(word_grid_receiver);
+        let solver_state = Arc::new(SolverStatePair {
+            state: Mutex::new(SolverState::Idle),
+            condvar: Condvar::new(),
+        });
+        let word_solver_state = Arc::clone(&solver_state);
+        let swap_solver_state = Arc::clone(&solver_state);
 
-            for (grid_id, grid) in skip_receiver {
+        let word_join_handle = thread::spawn(move || {
+            let mut completed_grid_id = None;
+
+            'thread_loop: loop {
+                let (grid_id, grid) = match word_solver_state.wait(
+                    completed_grid_id
+                ) {
+                    SolverState::Idle => unreachable!(),
+                    SolverState::Task { grid_id, grid } => (grid_id, grid),
+                    SolverState::Quit => break 'thread_loop,
+                };
+
+                completed_grid_id = Some(grid_id);
+
                 let Ok(grid) = LetterGrid::from_grid(&grid)
                 else {
                     continue;
@@ -914,7 +946,7 @@ impl SolverThread {
                         SolutionEventKind::Grid(solution),
                     );
                     if word_event_sender.send(event).is_err() {
-                        break;
+                        break 'thread_loop;
                     }
                 }
 
@@ -928,9 +960,19 @@ impl SolverThread {
         });
 
         let swap_join_handle = thread::spawn(move || {
-            let skip_receiver = SkipReceiverIter::new(swap_grid_receiver);
+            let mut completed_grid_id = None;
 
-            for (grid_id, grid) in skip_receiver {
+            'thread_loop: loop {
+                let (grid_id, grid) = match swap_solver_state.wait(
+                    completed_grid_id
+                ) {
+                    SolverState::Idle => unreachable!(),
+                    SolverState::Task { grid_id, grid } => (grid_id, grid),
+                    SolverState::Quit => break 'thread_loop,
+                };
+
+                completed_grid_id = Some(grid_id);
+
                 if let Some(n_swaps) = minimum_swaps(&grid) {
                     let event = SolutionEvent::new(
                         grid_id,
@@ -945,9 +987,8 @@ impl SolverThread {
 
         SolverThread {
             word_join_handle,
-            word_grid_sender,
             swap_join_handle,
-            swap_grid_sender,
+            solver_state,
             event_receiver,
         }
     }
@@ -955,15 +996,15 @@ impl SolverThread {
     fn join(self) {
         let SolverThread {
             word_join_handle,
-            word_grid_sender,
             swap_join_handle,
-            swap_grid_sender,
             event_receiver,
+            solver_state,
         } = self;
 
-        // Drop the mpcs so that the thread will quit
-        std::mem::drop(word_grid_sender);
-        std::mem::drop(swap_grid_sender);
+        *solver_state.state.lock().unwrap() = SolverState::Quit;
+        solver_state.condvar.notify_all();
+
+        // Drop the mpsc so that the thread will quit if it tries to send
         std::mem::drop(event_receiver);
 
         let _ = word_join_handle.join();
@@ -1037,10 +1078,7 @@ fn main() -> ExitCode {
     let mut editor = Editor::new(
         puzzles,
         dictionary,
-        vec![
-            solver_thread.word_grid_sender.clone(),
-            solver_thread.swap_grid_sender.clone(),
-        ],
+        Arc::clone(&solver_thread.solver_state),
         0,
         0,
     );
