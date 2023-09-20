@@ -147,7 +147,6 @@ impl Grid {
             }
 
             let letter = self.solution.letters[position];
-            let mut best_pos = None;
 
             for (i, position) in positions.clone().into_iter().enumerate() {
                 let square = self.puzzle.squares[position];
@@ -155,24 +154,15 @@ impl Grid {
                     self.solution.letters[square.position];
 
                 if used_letters & (1 << i) == 0 && puzzle_letter == letter {
-                    // It’s better to use a letter in the
-                    // WrongPosition state in case it was marked by a
-                    // word that crosses this one because we don’t
-                    // want to have two yellow letters for the same
-                    // letter.
-                    if square.state == PuzzleSquareState::WrongPosition {
-                        best_pos = Some((i, position));
-                        break;
-                    } else if best_pos.is_none() {
-                        best_pos = Some((i, position));
-                    }
+                    // Always use the first letter even if that ends
+                    // up making the puzzle have two yellow letters
+                    // pointing to the same letter because of an
+                    // intersecting word.
+                    used_letters |= 1 << i;
+                    self.puzzle.squares[position].state =
+                        PuzzleSquareState::WrongPosition;
+                    break;
                 }
-            }
-
-            if let Some((i, position)) = best_pos {
-                used_letters |= 1 << i;
-                self.puzzle.squares[position].state =
-                    PuzzleSquareState::WrongPosition;
             }
         }
     }
@@ -471,6 +461,38 @@ mod test {
         assert_eq!(squares[9].state, PuzzleSquareState::Wrong);
         assert_eq!(squares[14].state, PuzzleSquareState::Correct);
         assert_eq!(squares[19].state, PuzzleSquareState::Correct);
+        assert_eq!(squares[24].state, PuzzleSquareState::WrongPosition);
+    }
+
+    #[test]
+    fn double_yellow_because_of_intersection() {
+        let grid = "HUNDOAIVSIGNOTRJINAJN\
+                    acbfmdpjuklethorvnwyx"
+            .parse::<Grid>().unwrap();
+
+        // If a letter appears twice in a puzzle for a word then the
+        // first one should always be yellow. If the same letter also
+        // appears later at an intersection and it needs to be yellow
+        // because of the intersecting word then it should make both
+        // of them yellow rather than preferring to make just the
+        // intersecting letter yellow.
+
+        let squares = &grid.puzzle.squares;
+
+        // Right-hand column
+        assert_eq!(squares[4].state, PuzzleSquareState::Wrong);
+        assert_eq!(squares[9].state, PuzzleSquareState::Correct);
+        // First letter J is yellow because it’s the first J
+        assert_eq!(squares[14].state, PuzzleSquareState::WrongPosition);
+        assert_eq!(squares[19].state, PuzzleSquareState::Wrong);
+        // Second letter J is yellow because of the intersecting word
+        assert_eq!(squares[24].state, PuzzleSquareState::WrongPosition);
+
+        // Bottom row
+        assert_eq!(squares[20].state, PuzzleSquareState::WrongPosition);
+        assert_eq!(squares[21].state, PuzzleSquareState::Correct);
+        assert_eq!(squares[22].state, PuzzleSquareState::Correct);
+        assert_eq!(squares[23].state, PuzzleSquareState::Wrong);
         assert_eq!(squares[24].state, PuzzleSquareState::WrongPosition);
     }
 
