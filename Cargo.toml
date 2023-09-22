@@ -79,3 +79,6 @@ features = ["wide"]
 
 [target."cfg(not(target_arch = \"wasm32\"))".dependencies.rand]
 version = "0.8.5"
+
+[target."cfg(not(target_arch = \"wasm32\"))".dependencies.chrono]
+version = "0.4.31"

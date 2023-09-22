@@ -41,6 +41,7 @@ use rand::Rng;
 use grid::{Grid, SolutionGrid, PuzzleGrid, PuzzleSquareState};
 use word_counter::WordCounter;
 use solver_state::{SolverState, SolverStatePair};
+use chrono::{naive::Days, NaiveDate};
 
 // Number of swaps to make when shuffling the puzzle
 const N_SHUFFLE_SWAPS: usize = 10;
@@ -236,6 +237,15 @@ fn color_for_state(state: PuzzleSquareState) -> i16 {
     state as i16 + 1
 }
 
+fn date_string_for_puzzle(puzzle_num: usize) -> String {
+    let start_date = NaiveDate::from_ymd_opt(2023, 8, 7).unwrap();
+
+    match start_date.checked_add_days(Days::new(puzzle_num as u64)) {
+        None => "?".to_string(),
+        Some(puzzle_date) => puzzle_date.format("%a %Y-%m-%d").to_string(),
+    }
+}
+
 impl Editor {
     fn new(
         puzzles: Vec<Grid>,
@@ -298,9 +308,10 @@ impl Editor {
         ncurses::mvaddch(self.grid_y, right_side, direction_ch as u32);
 
         ncurses::addstr(&format!(
-            " {}/{}",
+            " {}/{} {}",
             self.current_puzzle + 1,
             self.puzzles.len(),
+            date_string_for_puzzle(self.current_puzzle),
         ));
 
         self.draw_words(right_side, self.grid_y + 2);
