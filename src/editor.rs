@@ -794,6 +794,12 @@ fn main_loop(
         };
 
         if poll_result < 0 {
+            if std::io::Error::last_os_error().kind()
+                == std::io::ErrorKind::Interrupted
+            {
+                continue;
+            }
+
             eprintln!("poll failed");
             break;
         }
