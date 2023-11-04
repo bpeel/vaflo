@@ -29,7 +29,15 @@ const REMOVE_NOTICE_DELAY: i32 = 3_250;
 const N_STARS: u32 = 5;
 const SAVE_STATE_KEY: &'static str = "vaflo-save-states";
 
-const FIRST_PUZZLE_DATE: &'static str = "2023-08-07T00:00:00";
+const FIRST_PUZZLE_DATE: &'static str = "2023-08-07T00:00:00Z";
+
+// For some reason js_sys only has the form with year and month for
+// Date.UTC
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(js_namespace = Date, js_name = UTC)]
+    pub fn date_utc_ymd(year: u32, month_index: u32, day: u32) -> f64;
+}
 
 fn show_error(message: &str) {
     console::log_1(&message.into());
@@ -54,8 +62,18 @@ fn show_error(message: &str) {
 
 fn todays_puzzle_number(puzzles: &[Grid]) -> Option<usize> {
     let first_date = js_sys::Date::parse(FIRST_PUZZLE_DATE);
-    let now = js_sys::Date::now();
-    let days = ((now - first_date) / (24.0 * 3_600_000.0)).floor();
+    let today = js_sys::Date::new_0();
+    let today_utc = date_utc_ymd(
+        today.get_utc_full_year(),
+        today.get_utc_month(),
+        today.get_utc_date(),
+    );
+    // Both dates are taken at midnight of the start of the day in UTC
+    // time so the difference should be a whole number of days, unless
+    // there are leap seconds or something. Using round() should
+    // compensate for the leap seconds and any floating-point
+    // inaccurarcies.
+    let days = ((today_utc - first_date) / (24.0 * 3_600_000.0)).round();
 
     if days.is_finite() && days >= 0.0 && days < puzzles.len() as f64 {
         Some(days as usize)
