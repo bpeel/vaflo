@@ -64,9 +64,9 @@ fn todays_puzzle_number(puzzles: &[Grid]) -> Option<usize> {
     let first_date = js_sys::Date::parse(FIRST_PUZZLE_DATE);
     let today = js_sys::Date::new_0();
     let today_utc = date_utc_ymd(
-        today.get_utc_full_year(),
-        today.get_utc_month(),
-        today.get_utc_date(),
+        today.get_full_year(),
+        today.get_month(),
+        today.get_date(),
     );
     // Both dates are taken at midnight of the start of the day in UTC
     // time so the difference should be a whole number of days, unless
