@@ -118,6 +118,71 @@ impl<'a> Node<'a> {
     }
 }
 
+struct StackEntry<'a> {
+    data: &'a [u8],
+    word_length: usize,
+}
+
+pub struct WordIterator<'a> {
+    stack: Vec<StackEntry<'a>>,
+    buf: String,
+}
+
+impl<'a> WordIterator<'a> {
+    pub fn new(dictionary: &'a Dictionary) -> WordIterator<'a> {
+        WordIterator {
+            stack: vec![StackEntry {
+                data: &dictionary.data,
+                word_length: 0,
+            }],
+            buf: String::new(),
+        }
+    }
+
+    pub fn next(&mut self) -> Option<&str> {
+        while let Some(entry) = self.stack.pop() {
+            let Some(node) = Node::extract(entry.data)
+            else {
+                continue;
+            };
+
+            if node.sibling_offset != 0 {
+                if let Some(sibling) =
+                    node.remainder.get(node.sibling_offset..)
+                {
+                    self.stack.push(StackEntry {
+                        data: sibling,
+                        word_length: entry.word_length,
+                    });
+                }
+            }
+
+            self.buf.truncate(entry.word_length);
+
+            if node.letter == '\0' {
+                // Skip the character from the root node
+                let mut chars = self.buf.chars();
+                return chars.next().map(|_| chars.as_str());
+            }
+
+            self.buf.push(node.letter);
+
+            if node.child_offset != 0 {
+                if let Some(child) =
+                    node.remainder.get(node.child_offset..)
+                {
+                    self.stack.push(StackEntry {
+                        data: child,
+                        word_length: self.buf.len(),
+                    });
+                }
+            }
+        }
+
+        None
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -151,8 +216,7 @@ mod test {
         assert_eq!(node.remainder, &[b'c']);
     }
 
-    #[test]
-    fn contains() {
+    fn make_test_dictionary() -> Dictionary {
         // Dictionary that contains “a”, “b”, “c”, “apple”, “app”, “ĉapelo”
         static DICTIONARY_BYTES: [u8; 52] = [
             0x00, 0x01, 0x2a, 0x01, 0x07, b'a', 0x01, 0x29, b'b', 0x04, 0x26,
@@ -162,7 +226,12 @@ mod test {
             0x04, b'e', 0x00, 0x01, b'o', 0x00, 0x00, 0x00,
         ];
 
-        let dictionary = Dictionary::new(Box::new(DICTIONARY_BYTES.clone()));
+        Dictionary::new(Box::new(DICTIONARY_BYTES.clone()))
+    }
+
+    #[test]
+    fn contains() {
+        let dictionary = make_test_dictionary();
 
         assert!(dictionary.contains("a".chars()));
         assert!(dictionary.contains("b".chars()));
@@ -179,5 +248,26 @@ mod test {
 
         assert!(dictionary.contains("APPLE".chars()));
         assert!(dictionary.contains("ĈAPelo".chars()));
+    }
+
+    #[test]
+    fn iterate_test_dictionary() {
+        let dictionary = make_test_dictionary();
+        let mut iter = WordIterator::new(&dictionary);
+
+        assert_eq!(iter.next(), Some("a"));
+        assert_eq!(iter.next(), Some("app"));
+        assert_eq!(iter.next(), Some("apple"));
+        assert_eq!(iter.next(), Some("b"));
+        assert_eq!(iter.next(), Some("c"));
+        assert_eq!(iter.next(), Some("ĉapelo"));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn iterate_empty_dictionary() {
+        let dictionary = Dictionary::new(Box::new([0, 0, b'*']));
+        let mut iter = WordIterator::new(&dictionary);
+        assert_eq!(iter.next(), None);
     }
 }
