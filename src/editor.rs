@@ -426,52 +426,61 @@ impl Editor {
         }
     }
 
+    fn draw_search_words<T: AsRef<str>>(
+        &self,
+        start_x: i32,
+        start_y: i32,
+        words: &[T],
+    ) -> i32 {
+        let max_x = ncurses::getmaxx(ncurses::stdscr());
+        let max_y = ncurses::getmaxy(ncurses::stdscr());
+
+        let mut x = start_x;
+        let mut y = start_y;
+
+        ncurses::mv(start_y, start_x);
+
+        for word in words.iter() {
+            if x + WORD_LENGTH as i32 + 1 > max_x {
+                x = start_x;
+                y += 1;
+
+                if y >= max_y {
+                    break;
+                }
+
+                ncurses::mv(y, x);
+            }
+            ncurses::addch(' ' as u32);
+            ncurses::addstr(word.as_ref());
+            x += WORD_LENGTH as i32 + 1;
+        }
+
+        y - start_y + 1
+    }
+
     fn draw_crosswords(
         &self,
         crosswords: &Vec<crossword_solver::Crossword>,
         start_x: i32,
         mut y: i32,
     ) {
+        let max_y = ncurses::getmaxy(ncurses::stdscr());
+
         ncurses::mvaddstr(y, start_x, "Crosswords:");
         y += 2;
 
-        let max_x = ncurses::getmaxx(ncurses::stdscr());
-
         for crossword in crosswords.iter() {
+            if y >= max_y {
+                break;
+            }
+
             ncurses::mv(y, start_x);
             addch_utf8(crossword.cross_letter);
             ncurses::addch(':' as u32);
 
-            let mut x = start_x + 2;
-
-            for word in crossword.a_words.iter() {
-                if x + WORD_LENGTH as i32 + 1 > max_x {
-                    x = start_x + 2;
-                    y += 1;
-                    ncurses::mv(y, x);
-                }
-                ncurses::addch(' ' as u32);
-                ncurses::addstr(word);
-                x += WORD_LENGTH as i32 + 1;
-            }
-
-            y += 1;
-
-            let mut x = start_x + 2;
-            ncurses::mv(y, x);
-
-            for word in crossword.b_words.iter() {
-                if x + WORD_LENGTH as i32 + 1 > max_x {
-                    x = start_x + 2;
-                    y += 1;
-                    ncurses::mv(y, x);
-                }
-                ncurses::addch(' ' as u32);
-                ncurses::addstr(word);
-                x += WORD_LENGTH as i32 + 1;
-            }
-
-            y += 1;
+            y += self.draw_search_words(start_x + 2, y, &crossword.a_words);
+            y += self.draw_search_words(start_x + 2, y, &crossword.b_words);
         }
     }
 
