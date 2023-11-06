@@ -75,6 +75,7 @@ struct Word {
 enum SearchResults {
     None,
     Crosswords(Vec<crossword_solver::Crossword>),
+    Words(Vec<String>),
 }
 
 struct Editor {
@@ -424,6 +425,9 @@ impl Editor {
             SearchResults::Crosswords(ref crosswords) => {
                 self.draw_crosswords(crosswords, x, y);
             },
+            SearchResults::Words(ref words) => {
+                self.draw_words_results(words, x, y);
+            },
         }
     }
 
@@ -483,6 +487,16 @@ impl Editor {
             y += self.draw_search_words(start_x + 2, y, &crossword.a_words);
             y += self.draw_search_words(start_x + 2, y, &crossword.b_words);
         }
+    }
+
+    fn draw_words_results<T: AsRef<str>>(
+        &self,
+        words: &[T],
+        x: i32,
+        y: i32,
+    ) {
+        ncurses::mvaddstr(y, x, "Search results:");
+        self.draw_search_words(x - 1, y + 2, words);
     }
 
     fn position_cursor(&self) {
@@ -630,6 +644,7 @@ impl Editor {
                 '.' => self.toggle_edit_direction(),
                 ' ' => self.handle_mark(),
                 '\u{0003}' => self.should_quit = true, // Ctrl+C
+                '\u{0010}' => self.pattern_search(), // Ctrl+P
                 '\u{0012}' => self.shuffle_puzzle(), // Ctrl+R
                 '\u{0013}' => self.handle_swap(), // Ctrl+S
                 '\u{000e}' => self.new_puzzle(), // Ctrl+N
@@ -752,6 +767,31 @@ impl Editor {
         );
 
         self.search_results = SearchResults::Crosswords(crosswords);
+
+        self.redraw();
+    }
+
+    fn pattern_search(&mut self) {
+        let solution = &self.puzzles[self.current_puzzle].solution;
+
+        let pattern = if self.cursor_y & 1 == 0 {
+            solution.letters[
+                self.cursor_y as usize
+                    * WORD_LENGTH
+                    ..(self.cursor_y as usize + 1) * WORD_LENGTH
+            ].into_iter().collect::<String>()
+        } else {
+            (0..WORD_LENGTH)
+                .map(|y| {
+                    let pos = y * WORD_LENGTH + self.cursor_x as usize;
+                    solution.letters[pos]
+                })
+                .collect::<String>()
+        };
+
+        let words = word_search::search(&pattern, &self.dictionary);
+
+        self.search_results = SearchResults::Words(words);
 
         self.redraw();
     }
