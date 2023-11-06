@@ -71,6 +71,11 @@ struct Word {
     text: String,
 }
 
+enum SearchResults {
+    None,
+    Crosswords(Vec<crossword_solver::Crossword>),
+}
+
 struct Editor {
     dictionary: Arc<Dictionary>,
     solver_state: Arc<SolverStatePair>,
@@ -90,6 +95,7 @@ struct Editor {
     had_all_solutions: bool,
     shortest_swap_solution: Option<usize>,
     word_counter: WordCounter,
+    search_results: SearchResults,
 }
 
 enum SolutionEventKind {
@@ -276,6 +282,7 @@ impl Editor {
             had_all_solutions: false,
             shortest_swap_solution: None,
             word_counter: WordCounter::new(),
+            search_results: SearchResults::None,
         };
 
         editor.update_words();
@@ -316,6 +323,10 @@ impl Editor {
         ));
 
         self.draw_words(right_side, self.grid_y + 2);
+        self.draw_search_results(
+            right_side,
+            self.grid_y + 2 + N_WORDS as i32 + 2,
+        );
 
         let mut y = self.grid_y + WORD_LENGTH as i32 + 3;
 
@@ -403,6 +414,64 @@ impl Editor {
             for (word, count) in self.word_counter.counts(&word.text) {
                 ncurses::addstr(&format!(" {}({})", word, count));
             }
+        }
+    }
+
+    fn draw_search_results(&self, x: i32, y: i32) {
+        match self.search_results {
+            SearchResults::None => (),
+            SearchResults::Crosswords(ref crosswords) => {
+                self.draw_crosswords(crosswords, x, y);
+            },
+        }
+    }
+
+    fn draw_crosswords(
+        &self,
+        crosswords: &Vec<crossword_solver::Crossword>,
+        start_x: i32,
+        mut y: i32,
+    ) {
+        ncurses::mvaddstr(y, start_x, "Crosswords:");
+        y += 2;
+
+        let max_x = ncurses::getmaxx(ncurses::stdscr());
+
+        for crossword in crosswords.iter() {
+            ncurses::mv(y, start_x);
+            addch_utf8(crossword.cross_letter);
+            ncurses::addch(':' as u32);
+
+            let mut x = start_x + 2;
+
+            for word in crossword.a_words.iter() {
+                if x + WORD_LENGTH as i32 + 1 > max_x {
+                    x = start_x + 2;
+                    y += 1;
+                    ncurses::mv(y, x);
+                }
+                ncurses::addch(' ' as u32);
+                ncurses::addstr(word);
+                x += WORD_LENGTH as i32 + 1;
+            }
+
+            y += 1;
+
+            let mut x = start_x + 2;
+            ncurses::mv(y, x);
+
+            for word in crossword.b_words.iter() {
+                if x + WORD_LENGTH as i32 + 1 > max_x {
+                    x = start_x + 2;
+                    y += 1;
+                    ncurses::mv(y, x);
+                }
+                ncurses::addch(' ' as u32);
+                ncurses::addstr(word);
+                x += WORD_LENGTH as i32 + 1;
+            }
+
+            y += 1;
         }
     }
 
@@ -554,6 +623,7 @@ impl Editor {
                 '\u{0012}' => self.shuffle_puzzle(), // Ctrl+R
                 '\u{0013}' => self.handle_swap(), // Ctrl+S
                 '\u{000e}' => self.new_puzzle(), // Ctrl+N
+                '\u{0018}' => self.find_crosswords(), // Ctrl+X
                 ch if ch.is_alphabetic() => {
                     for ch in ch.to_uppercase() {
                         self.add_character(ch);
@@ -638,6 +708,7 @@ impl Editor {
             self.current_puzzle = puzzle_num;
             self.update_words();
             self.update_word_counts();
+            self.search_results = SearchResults::None;
             self.send_grid();
             self.redraw();
         }
@@ -659,6 +730,19 @@ impl Editor {
         shuffle_grid(&mut grid.puzzle);
         grid.update_square_states();
         self.send_grid();
+        self.redraw();
+    }
+
+    fn find_crosswords(&mut self) {
+        let crosswords = crossword_solver::find_crosswords(
+            &self.puzzles[self.current_puzzle].solution,
+            self.cursor_x,
+            self.cursor_y,
+            &self.dictionary,
+        );
+
+        self.search_results = SearchResults::Crosswords(crosswords);
+
         self.redraw();
     }
 
