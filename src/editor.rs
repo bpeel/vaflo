@@ -27,6 +27,7 @@ mod word_counter;
 mod stem_word;
 mod solver_state;
 mod crossword_solver;
+mod word_search;
 
 use std::process::ExitCode;
 use letter_grid::LetterGrid;
