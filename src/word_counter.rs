@@ -20,19 +20,21 @@ use super::stem_word;
 struct WordEntry {
     word: String,
     count: usize,
+    last_use: usize,
 }
 
 pub struct WordCounter {
     words: HashMap<String, Vec<WordEntry>>,
 }
 
-fn add_entry_to_vec<I>(words: &mut Vec<WordEntry>, word: I)
+fn add_entry_to_vec<I>(words: &mut Vec<WordEntry>, word: I, last_use: usize)
 where
     I: IntoIterator<Item = char>
 {
     words.push(WordEntry {
         word: word.into_iter().collect::<String>(),
         count: 1,
+        last_use,
     });
 }
 
@@ -41,7 +43,7 @@ impl WordCounter {
         WordCounter { words: HashMap::new() }
     }
 
-    pub fn push<I>(&mut self, word: I)
+    pub fn push<I>(&mut self, word: I, last_use: usize)
     where
         I: Iterator<Item = char> + Clone
     {
@@ -58,13 +60,17 @@ impl WordCounter {
                         stored_word.word.chars().eq(word.clone())
                     })
                 {
-                    Some(stored_word) => stored_word.count += 1,
-                    None => add_entry_to_vec(words, word),
+                    Some(stored_word) => {
+                        stored_word.count += 1;
+                        stored_word.last_use =
+                            last_use.max(stored_word.last_use);
+                    },
+                    None => add_entry_to_vec(words, word, last_use),
                 }
             })
             .or_insert_with(|| {
                 let mut words = Vec::new();
-                add_entry_to_vec(&mut words, insert_word);
+                add_entry_to_vec(&mut words, insert_word, last_use);
                 words
             });
     }
@@ -87,10 +93,12 @@ pub struct WordCounts<'a> {
 }
 
 impl<'a> Iterator for WordCounts<'a> {
-    type Item = (&'a str, usize);
+    type Item = (&'a str, usize, usize);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.entries.next().map(|entry| (entry.word.as_str(), entry.count))
+        self.entries.next().map(|entry| {
+            (entry.word.as_str(), entry.count, entry.last_use)
+        })
     }
 }
 
@@ -102,20 +110,21 @@ mod test {
     fn counts() {
         let mut counter = WordCounter::new();
 
-        counter.push("MELONO".chars());
-        counter.push("MELONOJ".chars());
-        counter.push("MELONOJN".chars());
-        counter.push("MELONO".chars());
-        counter.push("MELKI".chars());
+        counter.push("MELONO".chars(), 3);
+        counter.push("MELONOJ".chars(), 2);
+        counter.push("MELONOJN".chars(), 4);
+        counter.push("MELONO".chars(), 4);
+        counter.push("MELONO".chars(), 2);
+        counter.push("MELKI".chars(), 42);
 
         let mut melons = counter.counts("MELONA");
-        assert_eq!(melons.next(), Some(("MELONO", 2)));
-        assert_eq!(melons.next(), Some(("MELONOJ", 1)));
-        assert_eq!(melons.next(), Some(("MELONOJN", 1)));
+        assert_eq!(melons.next(), Some(("MELONO", 3, 4)));
+        assert_eq!(melons.next(), Some(("MELONOJ", 1, 2)));
+        assert_eq!(melons.next(), Some(("MELONOJN", 1, 4)));
         assert!(melons.next().is_none());
 
         let mut milkings = counter.counts("MELKIS");
-        assert_eq!(milkings.next(), Some(("MELKI", 1)));
+        assert_eq!(milkings.next(), Some(("MELKI", 1, 42)));
         assert!(milkings.next().is_none());
 
         assert!(counter.counts("BANANOJ").next().is_none());

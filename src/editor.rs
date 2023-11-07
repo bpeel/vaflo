@@ -413,8 +413,15 @@ impl Editor {
                 }
             );
 
-            for (word, count) in self.word_counter.counts(&word.text) {
-                ncurses::addstr(&format!(" {}({})", word, count));
+            for (word, count, last_use)
+                in self.word_counter.counts(&word.text)
+            {
+                ncurses::addstr(&format!(
+                    " {}({},#{})",
+                    word,
+                    count,
+                    last_use + 1,
+                ));
             }
         }
     }
@@ -806,7 +813,7 @@ impl Editor {
 
             for positions in grid::WordPositions::new() {
                 let word = positions.map(|pos| puzzle.solution.letters[pos]);
-                self.word_counter.push(word);
+                self.word_counter.push(word, puzzle_num);
             }
         }
     }
