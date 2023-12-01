@@ -48,6 +48,9 @@ use chrono::{naive::Days, NaiveDate};
 // Number of swaps to make when shuffling the puzzle
 const N_SHUFFLE_SWAPS: usize = 10;
 
+const WRONG_LETTER_COLOR: i16 = 1;
+const FIRST_STATE_COLOR: i16 = 2;
+
 enum EditDirection {
     Right,
     Down,
@@ -243,7 +246,7 @@ fn minimum_swaps(grid: &Grid) -> Option<usize> {
 
 #[inline(always)]
 fn color_for_state(state: PuzzleSquareState) -> i16 {
-    state as i16 + 1
+    state as i16 + FIRST_STATE_COLOR
 }
 
 fn date_string_for_puzzle(puzzle_num: usize) -> String {
@@ -354,6 +357,8 @@ impl Editor {
 
             let max_y = ncurses::getmaxy(ncurses::stdscr());
 
+            let wrong_letter_color = ncurses::COLOR_PAIR(WRONG_LETTER_COLOR);
+
             for solution in self.solutions.iter() {
                 if y + WORD_LENGTH as i32 > max_y {
                     break;
@@ -373,9 +378,11 @@ impl Editor {
                         let letter = ch.encode_utf8(&mut letter);
 
                         if ch != grid.solution.letters[position] {
+                            ncurses::attron(wrong_letter_color);
                             ncurses::attron(ncurses::A_BOLD());
                             ncurses::addstr(letter);
                             ncurses::attroff(ncurses::A_BOLD());
+                            ncurses::attroff(wrong_letter_color);
                         } else {
                             ncurses::addstr(letter);
                         }
@@ -1169,6 +1176,11 @@ fn main() -> ExitCode {
     ncurses::start_color();
     ncurses::nodelay(ncurses::stdscr(), true);
 
+    ncurses::init_pair(
+        WRONG_LETTER_COLOR,
+        ncurses::COLOR_RED,
+        ncurses::COLOR_BLACK,
+    );
     ncurses::init_pair(
         color_for_state(PuzzleSquareState::Correct),
         ncurses::COLOR_GREEN,
