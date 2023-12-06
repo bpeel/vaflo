@@ -760,7 +760,25 @@ impl Editor {
     }
 
     fn new_puzzle(&mut self) {
-        self.puzzles.push(Grid::new());
+        let mut grid = Grid::new();
+        let letters = &mut grid.solution.letters;
+
+        // Initialise all of the letters with the X search pattern
+        // placeholder to make it easier to search for words.
+        for (i, letter) in letters.iter_mut().enumerate() {
+            if !grid::is_gap_position(i) {
+                *letter = 'X';
+            }
+        }
+
+        // Set the letters at intersections on the leftmost and
+        // bottomost words to the 'Y' pattern
+        for i in (0..WORD_LENGTH).step_by(2) {
+            letters[WORD_LENGTH * i + (WORD_LENGTH - 1)] = 'Y';
+            letters[WORD_LENGTH * (WORD_LENGTH - 1) + i] = 'Y';
+        }
+
+        self.puzzles.push(grid);
         self.set_current_puzzle(self.puzzles.len() - 1);
     }
 
