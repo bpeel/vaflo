@@ -9,6 +9,9 @@ files=(
     "favicon.ico"
     "puzzles.txt"
     "donaci.svg"
+    "drag.svg"
+    "colors.svg"
+    "cross.svg"
 )
 
 included_files=(

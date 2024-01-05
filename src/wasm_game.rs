@@ -293,6 +293,8 @@ struct Vaflo {
     pointercancel_closure: Option<Closure::<dyn Fn(JsValue)>>,
     visibility_closure: Option<Closure::<dyn Fn(JsValue)>>,
     share_closure: Option<Closure::<dyn Fn(JsValue)>>,
+    close_closure: Option<Closure::<dyn Fn(JsValue)>>,
+    help_closure: Option<Closure::<dyn Fn(JsValue)>>,
     game_contents: web_sys::HtmlElement,
     game_grid: web_sys::HtmlElement,
     letters: Vec<web_sys::HtmlElement>,
@@ -339,7 +341,11 @@ impl Vaflo {
             return Err("there is no puzzle for today".to_string());
         };
 
-        let save_state = load_save_state_for_puzzle(&context, todays_puzzle)
+        let mut save_states = load_save_states(&context);
+
+        let is_first_game = save_states.is_empty();
+
+        let save_state = save_states.remove(&todays_puzzle)
             .unwrap_or_else(|| {
                 SaveState::new(puzzles[todays_puzzle].clone(), MAXIMUM_SWAPS)
             });
@@ -352,6 +358,8 @@ impl Vaflo {
             pointercancel_closure: None,
             visibility_closure: None,
             share_closure: None,
+            close_closure: None,
+            help_closure: None,
             game_contents,
             game_grid,
             swaps_remaining_message,
@@ -373,6 +381,8 @@ impl Vaflo {
 
         vaflo.create_closures();
         vaflo.set_up_share_button();
+        vaflo.set_up_close_button();
+        vaflo.set_up_help_button();
         vaflo.create_letters()?;
         vaflo.update_title();
         vaflo.update_square_letters();
@@ -386,6 +396,10 @@ impl Vaflo {
         }
 
         vaflo.show_game_contents();
+
+        if is_first_game {
+            vaflo.set_instructions_visibility(true);
+        }
 
         Ok(vaflo)
     }
@@ -491,6 +505,58 @@ impl Vaflo {
         );
 
         self.share_closure = Some(share_closure);
+    }
+
+    fn set_up_close_button(&mut self) {
+        let vaflo_pointer = self as *mut Vaflo;
+
+        let close_closure = Closure::<dyn Fn(JsValue)>::new(
+            move |_event: JsValue| {
+                let vaflo = unsafe { &mut *vaflo_pointer };
+                vaflo.set_instructions_visibility(false);
+            }
+        );
+
+        for id in ["close-instructions", "close-instructions-cross"] {
+            let Some(close_button) =
+                self.context.document.get_element_by_id(id)
+                .and_then(|c| c.dyn_into::<web_sys::EventTarget>().ok())
+            else {
+                continue;
+            };
+
+            let _ = close_button.add_event_listener_with_callback(
+                "click",
+                close_closure.as_ref().unchecked_ref(),
+            );
+        }
+
+        self.close_closure = Some(close_closure);
+    }
+
+    fn set_up_help_button(&mut self) {
+        let vaflo_pointer = self as *mut Vaflo;
+
+        let help_closure = Closure::<dyn Fn(JsValue)>::new(
+            move |_event: JsValue| {
+                let vaflo = unsafe { &mut *vaflo_pointer };
+                vaflo.set_instructions_visibility(true);
+            }
+        );
+
+        let Some(help_button) =
+            self.context.document.get_element_by_id("help-button")
+            .and_then(|c| c.dyn_into::<web_sys::EventTarget>().ok())
+        else {
+            return;
+        };
+
+        let _ = help_button.add_event_listener_with_callback(
+            "click",
+            help_closure.as_ref().unchecked_ref(),
+        );
+
+        self.help_closure = Some(help_closure);
     }
 
     fn create_letters(&mut self) -> Result<(), String> {
@@ -1031,6 +1097,28 @@ impl Vaflo {
         }
     }
 
+    fn set_instructions_visibility(&mut self, visibility: bool) {
+        if let Some(instructions) =
+            self.context.document.get_element_by_id("instructions-overlay")
+            .and_then(|c| c.dyn_into::<web_sys::HtmlElement>().ok())
+        {
+            let _ = instructions.style().set_property(
+                "display",
+                if visibility { "block" } else { "none" },
+            );
+        }
+
+        if let Some(content) =
+            self.context.document.get_element_by_id("content")
+            .and_then(|c| c.dyn_into::<web_sys::HtmlElement>().ok())
+        {
+                let _ = content.style().set_property(
+                    "display",
+                    if visibility { "none" } else { "block" },
+                );
+        }
+    }
+
     fn set_clipboard_text(&self, text: &str) -> Result<(), String> {
         let Some(element) =
             self.context.document.create_element("textarea").ok()
@@ -1161,13 +1249,6 @@ fn load_save_states(context: &Context) -> HashMap<usize, SaveState> {
     } else {
         HashMap::new()
     }
-}
-
-fn load_save_state_for_puzzle(
-    context: &Context,
-    puzzle_num: usize,
-) -> Option<SaveState> {
-    load_save_states(context).remove(&puzzle_num)
 }
 
 #[wasm_bindgen]

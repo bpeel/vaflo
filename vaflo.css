@@ -6,11 +6,30 @@ body {
     margin-bottom: 0px;
 }
 
-#content {
+#instructions-overlay {
+    background-color: rgba(200, 200, 200, 190);
+    position: absolute;
+    left: 0px;
+    top: 0px;
+    width: 100vw;
+    min-height: 100vh;
+}
+
+#content, #instructions {
     display: flex;
     flex-direction: column;
     background-color: #fff;
     min-height: 100vh;
+}
+
+#instructions img {
+    width: 60%;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+#close-instructions {
+    margin-bottom: 1em;
 }
 
 h1, h2 {
@@ -175,12 +194,12 @@ h1, h2 {
     text-align: left;
 }
 
-#statistics p {
+#statistics p, #instructions p {
     margin: 2em;
     text-align: center;
 }
 
-#share-button {
+button {
     margin-top: 0.5em;
     margin-left: auto;
     margin-right: auto;
@@ -196,7 +215,7 @@ h1, h2 {
     border-radius: 0.5em;
 }
 
-#share-button:active {
+button:active {
     border-style: solid none none none;
     border-color: #6fb05c;
 }
@@ -216,6 +235,19 @@ h1, h2 {
     padding: 1em 1.5em;
 }
 
+.title-bar {
+    display: flex;
+}
+
+.title-bar h1 {
+    flex-grow: 1;
+}
+
+.title-left-space, .title-bar svg {
+    width: 2em;
+    padding: 0 1.5em;
+}
+
 @keyframes fade-out {
     to {
         opacity: 0;
@@ -223,7 +255,7 @@ h1, h2 {
 }
 
 @media only all and (max-width: 45em) {
-    #content {
+    #content, #instructions {
         position: absolute;
         top: 0px;
         left: 0px;
@@ -235,7 +267,7 @@ h1, h2 {
 }
 
 @media not all and (max-width: 45em) {
-    #content {
+    #content, #instructions {
         max-width: 40em;
         margin-left: auto;
         margin-right: auto;
