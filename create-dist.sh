@@ -8,6 +8,7 @@ files=(
     "index.html"
     "favicon.ico"
     "puzzles.txt"
+    "donaci.svg"
 )
 
 included_files=(
