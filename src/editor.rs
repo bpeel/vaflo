@@ -250,7 +250,7 @@ fn color_for_state(state: PuzzleSquareState) -> i16 {
 }
 
 fn date_string_for_puzzle(puzzle_num: usize) -> String {
-    let start_date = NaiveDate::from_ymd_opt(2023, 8, 7).unwrap();
+    let start_date = NaiveDate::from_ymd_opt(2024, 3, 3).unwrap();
 
     match start_date.checked_add_days(Days::new(puzzle_num as u64)) {
         None => "?".to_string(),

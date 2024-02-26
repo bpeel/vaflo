@@ -29,7 +29,7 @@ const REMOVE_NOTICE_DELAY: i32 = 3_250;
 const N_STARS: u32 = 5;
 const SAVE_STATE_KEY: &'static str = "vaflo-save-states";
 
-const FIRST_PUZZLE_DATE: &'static str = "2023-08-07T00:00:00Z";
+const FIRST_PUZZLE_DATE: &'static str = "2024-03-03T00:00:00Z";
 
 // For some reason js_sys only has the form with year and month for
 // Date.UTC
