@@ -170,17 +170,16 @@ impl LetterGrid {
 
             let solution_pos = grid.puzzle.squares[position].position;
 
-            let mut letter =
-                Letter::from_char(y + 1, grid.solution.letters[solution_pos])?;
+            letter_grid.letters[letter_num] = Letter {
+                value: grid.solution.letters[solution_pos],
 
-            letter.state = match grid.puzzle.squares[position].state {
-                grid::PuzzleSquareState::Correct => LetterState::Fixed,
-                grid::PuzzleSquareState::WrongPosition
-                    | grid::PuzzleSquareState::Wrong
-                    => LetterState::Movable,
+                state: match grid.puzzle.squares[position].state {
+                    grid::PuzzleSquareState::Correct => LetterState::Fixed,
+                    grid::PuzzleSquareState::WrongPosition
+                        | grid::PuzzleSquareState::Wrong
+                        => LetterState::Movable,
+                },
             };
-
-            letter_grid.letters[letter_num] = letter;
         }
 
         Ok(letter_grid)
