@@ -663,7 +663,7 @@ impl Editor {
                 '\u{0013}' => self.handle_swap(), // Ctrl+S
                 '\u{000e}' => self.new_puzzle(), // Ctrl+N
                 '\u{0018}' => self.find_crosswords(), // Ctrl+X
-                ch if ch.is_alphabetic() => {
+                ch if ch.is_alphabetic() || ch == '.' => {
                     for ch in ch.to_uppercase() {
                         self.add_character(ch);
                     }
