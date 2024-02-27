@@ -68,11 +68,11 @@
     <use href="#tile-outline" fill="#649e53" />
   </g>
   <g text-anchor="middle" font-size="15" font-family="sans-serif">
-    <text fill="white" x="10.9565" y="37.345">V</text>
+    <text fill="white" x="10.9565" y="37.345">S</text>
     <text fill="black" x="35.3005" y="37.345">G</text>
-    <text fill="white" x="59.6445" y="37.345">L</text>
+    <text fill="white" x="59.6445" y="37.345">U</text>
     <text fill="white" x="83.9885" y="37.345">A</text>
-    <text fill="white" x="108.3325" y="37.345">O</text>
+    <text fill="white" x="108.3325" y="37.345">T</text>
   </g>
   <use href="#top-bubble" stroke="#649e53" stroke-width="4"
        stroke-linejoin="round" fill="none" />
@@ -86,10 +86,10 @@
   <g fill="white"
      text-anchor="middle"
      font-size="5.644px" font-family="sans-serif">
-    <text x="56.25" y="10.656">La V kaj la O estas ĉe la ĝusta loko</text>
-    <text x="20.69" y="54.786" fill="black">La vorto ne</text>
-    <text x="20.69" y="60.995" fill="black">enhavas G</text>
-    <text x="82.363" y="64.604722">La vorto enhavas L kaj A,</text>
-    <text x="82.363" y="70.813607">sed ĉe alia loko</text>
+    <text x="56.25" y="10.656">Le S et le T sont au bon endroit</text>
+    <text x="20.69" y="54.786" fill="black">Le mot n’a</text>
+    <text x="20.69" y="60.995" fill="black">pas de G</text>
+    <text x="82.363" y="64.604722">Le mot a un U et un A,</text>
+    <text x="82.363" y="70.813607">mais à un autre endroit</text>
   </g>
 </svg>

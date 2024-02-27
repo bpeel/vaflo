@@ -1,5 +1,5 @@
 // Vaflo – A word game in Esperanto
-// Copyright (C) 2023  Neil Roberts
+// Copyright (C) 2023, 2024  Neil Roberts
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@ use std::collections::HashMap;
 const STOP_ANIMATIONS_DELAY: i32 = 250;
 const REMOVE_NOTICE_DELAY: i32 = 3_250;
 const N_STARS: u32 = 5;
-const SAVE_STATE_KEY: &'static str = "vaflo-save-states";
+const SAVE_STATE_KEY: &'static str = "gaufre-save-states";
 
 const FIRST_PUZZLE_DATE: &'static str = "2024-03-01T00:00:00Z";
 
@@ -57,7 +57,7 @@ fn show_error(message: &str) {
         return;
     };
 
-    message_elem.set_text_content(Some("Eraro okazis"));
+    message_elem.set_text_content(Some("Une erreur s’est produite"));
 }
 
 fn todays_puzzle_number(puzzles: &[Grid]) -> Option<usize> {
@@ -871,7 +871,7 @@ impl Vaflo {
         if let Some(element) = self.context.document.get_element_by_id("title")
             .and_then(|c| c.dyn_into::<web_sys::HtmlElement>().ok())
         {
-            let value = format!("Vaflo #{}", self.todays_puzzle + 1);
+            let value = format!("Gaufre #{}", self.todays_puzzle + 1);
             self.set_element_text(&element, &value);
         }
     }
@@ -895,12 +895,12 @@ impl Vaflo {
         self.set_game_state(GameState::Won);
 
         let text = match self.swaps_remaining {
-            4 => "Bonege!",
-            3 => "Tre bone!",
-            2 => "Sukceso!",
-            1 => "Bone!",
-            0 => "Uf! Ĝusteco!",
-            _ => "Perfekte!",
+            4 => "Excellent !",
+            3 => "Bravo !",
+            2 => "Très bien !",
+            1 => "Bien joué !",
+            0 => "Ouf, de justesse !",
+            _ => "Parfait !",
         };
 
         self.set_element_text(&self.swaps_remaining_message, text);
@@ -930,7 +930,7 @@ impl Vaflo {
     fn set_lost_state(&mut self) {
         self.set_game_state(GameState::Lost);
 
-        self.set_element_text(&self.swaps_remaining_message, "Malsukcesis 😔");
+        self.set_element_text(&self.swaps_remaining_message, "C’est loupé 😔");
     }
 
     fn update_square_letter(&self, position: usize) {
@@ -982,9 +982,9 @@ impl Vaflo {
 
     fn update_swaps_remaining(&self) {
         let text = if self.swaps_remaining == 1 {
-            "Restas 1 interŝanĝo".to_string()
+            "Il vous reste 1 échange".to_string()
         } else {
-            format!("Restas {} interŝanĝoj", self.swaps_remaining)
+            format!("Il vous reste {} échanges", self.swaps_remaining)
         };
 
         self.set_element_text(&self.swaps_remaining_message, &text);
@@ -1092,7 +1092,7 @@ impl Vaflo {
         );
 
         match self.set_clipboard_text(&share_text) {
-            Ok(()) => self.show_notice("Mesaĝo kopiita al la tondujo"),
+            Ok(()) => self.show_notice("Le message a été copié"),
             Err(e) => console::log_1(&e.into()),
         }
     }

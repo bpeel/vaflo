@@ -57,13 +57,13 @@
   </g>
   <g text-anchor="middle" font-size="15" font-family="sans-serif">
     <text fill="white" x="59.2425" y="17">M</text>
-    <text fill="black" x="59.2425" y="41.344">Ĉ</text>
+    <text fill="black" x="59.2425" y="41.344">K</text>
     <text fill="white" x="59.2425" y="65.688">A</text>
     <text fill="black" x="59.2425" y="90.032">U</text>
-    <text fill="white" x="59.2425" y="114.376">I</text>
-    <text fill="white" x="10.9565" y="65.688">V</text>
-    <text fill="black" x="35.3005" y="65.688">S</text>
+    <text fill="white" x="59.2425" y="114.376">E</text>
+    <text fill="white" x="10.9565" y="65.688">S</text>
+    <text fill="black" x="35.3005" y="65.688">F</text>
     <text fill="black" x="83.9885" y="65.688">G</text>
-    <text fill="white" x="108.3325" y="65.688">O</text>
+    <text fill="white" x="108.3325" y="65.688">T</text>
   </g>
 </svg>

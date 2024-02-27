@@ -18,12 +18,13 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<html lang="eo">
+<html lang="fr">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Ludu ĉiutagan vortan ludon en Esperanto.">
-    <title>Vaflo</title>
+    <meta name="description"
+          content="Un jeu de mots en forme de gaufre tous les jours.">
+    <title>Jeu de gaufre</title>
     <link rel="stylesheet" type="text/css" href="vaflo.css">
     <script type="module" src="vaflo.js"></script>
   </head>
@@ -31,7 +32,7 @@
     <div id="content">
       <div class="title-bar">
         <div class="title-left-space"></div>
-        <h1 id="title">Vaflo</h1>
+        <h1 id="title">Jeu de gaufre</h1>
         <svg id="help-button" viewBox="0 0 35.967396 35.9674">
           <path fill="black"
                 d="M 17.984,0.649 c -9.557,0 -17.334,7.777 -17.334,17.334
@@ -53,32 +54,32 @@
                    -0.139,0.788 -0.046,0.464 -0.046,1.267 z" />
         </svg>
       </div>
-      <p id="message" style="display: block">Ŝarĝado…</p>
+      <p id="message" style="display: block">Chargement…</p>
       <div id="game-contents" style="display: none">
         <div id="game-grid"></div>
         <div id="swaps-remaining"></div>
-        <button id="share-button" style="display: none">Kunhavigi</button>
+        <button id="share-button" style="display: none">Partager</button>
         <div id="statistics" style="display: none">
-          <h2>Statistikoj</h2>
+          <h2>Statistiques</h2>
           <table>
             <tr>
-              <th scope="row">Luditaj</th>
+              <th scope="row">Nombre de parties jouées</th>
               <td id="stats-played"></td>
             </tr>
             <tr>
-              <th scope="row">Sumaj steloj</th>
+              <th scope="row">Total d’étoiles</th>
               <td id="stats-total-stars"></td>
             </tr>
             <tr>
-              <th scope="row">Aktuala gajnvico</th>
+              <th scope="row">Série actuelle</th>
               <td id="stats-current-streak"></td>
             </tr>
             <tr>
-              <th scope="row">Plej bona gajnvico</th>
+              <th scope="row">Meilleure série</th>
               <td id="stats-best-streak"></td>
             </tr>
           </table>
-          <h2>Distribuo de steloj</h2>
+          <h2>Distribution d’étoiles</h2>
           <table>
             <tr><th scope="row">X</th><td id="stats-fail-count"></td></tr>
             <tr><th scope="row">0⭐</th><td id="stats-0-stars"></td></tr>
@@ -89,17 +90,17 @@
             <tr><th scope="row">5⭐</th><td id="stats-5-stars"></td></tr>
           </table>
           <p>
-            Vaflo estas senpaga kaj libera programo. La fontokodo
-            estas havebla
-            ĉe <a href="https://github.com/bpeel/vaflo">Github</a>. Se
-            vi volas kaj povas donaci por subteni la daŭripovon de la
-            retpaĝo, tio eblas
-            ĉe <a href="https://eo.liberapay.com/bpeel/donate">Liberapay</a>.
-            Dankon!
+            Le Jeu de gaufre est gratuit et c’est du logiciel libre. Le
+            code source est disponible
+            sur <a href="https://github.com/bpeel/vaflo/tree/french">Github</a>.
+            Si vous voulez et vous avez la possibilité, vous pouvez
+            faire un don pour soutenir le développement du site
+            avec <a href="https://fr.liberapay.com/bpeel/donate">Liberapay</a>.
+            Merci !
           </p>
           <p>
-            <a href="https://eo.liberapay.com/bpeel/donate">
-              <img alt="Donaci per Liberapay" src="donaci.svg">
+            <a href="https://fr.liberapay.com/bpeel/donate">
+              <img alt="Faire un don avec Liberapay" src="donner.svg">
             </a>
           </p>
         </div>
@@ -109,7 +110,7 @@
       <div id="instructions">
         <div class="title-bar">
           <div class="title-left-space"></div>
-          <h1 id="title">Kiel ludi</h1>
+          <h1 id="title">Comment jouer</h1>
           <svg id="close-instructions-cross" viewBox="0 0 35.967396 35.9674">
             <path stroke="black" stroke-width="5"
                   d="M 32.670,3.245 l -28.990,29.793
@@ -117,25 +118,28 @@
           </svg>
         </div>
         <p>
-          Trenu la literojn por fari interŝanĝojn ĝis ĉiuj linioj kaj
-          kolonoj faras vorton.
+          Faites glisser les lettres pour les interchanger jusqu’à ce que
+          toutes les lignes et toutes les colonnes fassent un mot.
         </p>
-        <img src="drag.svg" alt="Ekzemplo de trenado de literoj">
+        <img src="drag.svg" alt="Exemple de faire glisser les lettres">
         <p>
-          La koloro de la litero indikas ĉu ĝi aperas en la vorto kaj
-          ĉu ĝi estas ĉe la ĝusta loko.
+          La couleur de la lettre vous indique si elle fait partie du
+          mot et si elle au bon endroit.
         </p>
-        <img src="colors.svg" alt="Klarigo pri la koloroj de la literoj">
+        <img src="colors.svg" alt="Explication des couleurs des lettres">
         <p>
-          Se flava litero aperas ĉe la kruciĝo de du vortoj, tio
-          signifas ke la litero apartenas al unu vorto aŭ eĉ ambaŭ.
+          Si une lettre jaune se trouve au croisement de deux mots, ça
+          veut dire que la lettre appartient à un des mots ou bien aux
+          deux.
         </p>
-        <img src="cross.svg" alt="Klarigo pri tio, kio okazas ĉe kruciĝoj">
+        <img src="cross.svg"
+             alt="Explication de ce qui se passe aux croisements">
         <p>
-          Vi rajtas fari 15 interŝanĝojn kaj ĉiu puzlo estas sovebla
-          per 10. Bonan ludadon!
+          Vous avez le droit à 15 coups pour résoudre la gaufre et
+          sachez qu’il est possible de résoudre chaque gaufre en 10
+          coups seulement. Bonne chance !
         </p>
-        <button id="close-instructions">Fermi</button>
+        <button id="close-instructions">Fermer</button>
       </div>
     </div>
   </body>

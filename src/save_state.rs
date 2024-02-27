@@ -1,5 +1,5 @@
 // Vaflo – A word game in Esperanto
-// Copyright (C) 2023  Neil Roberts
+// Copyright (C) 2023, 2024  Neil Roberts
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -286,7 +286,7 @@ impl Statistics {
 
         let is_solved = save_state.grid.puzzle.is_solved();
 
-        write!(results, "#vaflo{} ", puzzle_num + 1).unwrap();
+        write!(results, "#gaufre{} ", puzzle_num + 1).unwrap();
 
         if is_solved {
             write!(results, "{}", save_state.swaps_remaining).unwrap();
@@ -329,7 +329,7 @@ impl Statistics {
         write!(
             results,
             "\n\
-             {} gajnvico: {}\n\
+             {} série : {}\n\
              https://jeudegaufre.fr",
             if is_solved {
                 '🔥'
@@ -617,7 +617,7 @@ mod test {
         let save_state = save_states.values().next().unwrap();
 
         assert_eq!(
-            "#vaflo5 0/5\n\
+            "#gaufre5 0/5\n\
              \n\
              🟩🟩🟩🟩🟩\n\
              🟩⬜🟩⬜🟩\n\
@@ -625,7 +625,7 @@ mod test {
              🟩⬜🟩⬜🟩\n\
              🟩🟩🟩🟩🟩\n\
              \n\
-             🔥 gajnvico: 1\n\
+             🔥 série : 1\n\
              https://jeudegaufre.fr",
             &statistics.share_text(4, &save_state)
         );
@@ -635,7 +635,7 @@ mod test {
         let save_state = save_states.values().next().unwrap();
 
         assert_eq!(
-            "#vaflo5 1/5\n\
+            "#gaufre5 1/5\n\
              \n\
              🟩🟩🟩🟩🟩\n\
              🟩⬜🟩⬜🟩\n\
@@ -643,7 +643,7 @@ mod test {
              🟩⬜🟩⬜🟩\n\
              🟩🟩🟩🟩🟩\n\
              \n\
-             🔥 gajnvico: 1\n\
+             🔥 série : 1\n\
              https://jeudegaufre.fr",
             &statistics.share_text(4, &save_state)
         );
@@ -653,7 +653,7 @@ mod test {
         let save_state = save_states.values().next().unwrap();
 
         assert_eq!(
-            "#vaflo5 2/5\n\
+            "#gaufre5 2/5\n\
              \n\
              🟩🟩🟩🟩🟩\n\
              🟩⭐🟩⬜🟩\n\
@@ -661,7 +661,7 @@ mod test {
              🟩⬜🟩⭐🟩\n\
              🟩🟩🟩🟩🟩\n\
              \n\
-             🔥 gajnvico: 1\n\
+             🔥 série : 1\n\
              https://jeudegaufre.fr",
             &statistics.share_text(4, &save_state)
         );
@@ -671,7 +671,7 @@ mod test {
         let save_state = save_states.values().next().unwrap();
 
         assert_eq!(
-            "#vaflo5 3/5\n\
+            "#gaufre5 3/5\n\
              \n\
              🟩🟩🟩🟩🟩\n\
              🟩⭐🟩⬜🟩\n\
@@ -679,7 +679,7 @@ mod test {
              🟩⬜🟩⭐🟩\n\
              🟩🟩🟩🟩🟩\n\
              \n\
-             🔥 gajnvico: 1\n\
+             🔥 série : 1\n\
              https://jeudegaufre.fr",
             &statistics.share_text(4, &save_state)
         );
@@ -689,7 +689,7 @@ mod test {
         let save_state = save_states.values().next().unwrap();
 
         assert_eq!(
-            "#vaflo5 4/5\n\
+            "#gaufre5 4/5\n\
              \n\
              🟩🟩🟩🟩🟩\n\
              🟩⭐🟩⭐🟩\n\
@@ -697,7 +697,7 @@ mod test {
              🟩⭐🟩⭐🟩\n\
              🟩🟩🟩🟩🟩\n\
              \n\
-             🔥 gajnvico: 1\n\
+             🔥 série : 1\n\
              https://jeudegaufre.fr",
             &statistics.share_text(4, &save_state)
         );
@@ -707,7 +707,7 @@ mod test {
         let save_state = save_states.values().next().unwrap();
 
         assert_eq!(
-            "#vaflo5 5/5\n\
+            "#gaufre5 5/5\n\
              \n\
              🟩🟩🟩🟩🟩\n\
              🟩⭐🟩⭐🟩\n\
@@ -715,7 +715,7 @@ mod test {
              🟩⭐🟩⭐🟩\n\
              🟩🟩🟩🟩🟩\n\
              \n\
-             🔥 gajnvico: 1\n\
+             🔥 série : 1\n\
              https://jeudegaufre.fr",
             &statistics.share_text(4, &save_state)
         );
@@ -731,7 +731,7 @@ mod test {
         let save_state = save_states.values().next().unwrap();
 
         assert_eq!(
-            "#vaflo5 X/5\n\
+            "#gaufre5 X/5\n\
              \n\
              🟩🟩⬛⬛🟩\n\
              🟩⬜⬛⬜⬛\n\
@@ -739,7 +739,7 @@ mod test {
              ⬛⬜⬛⬜🟩\n\
              ⬛⬛🟩⬛⬛\n\
              \n\
-             💔 gajnvico: 0\n\
+             💔 série : 0\n\
              https://jeudegaufre.fr",
             &statistics.share_text(4, &save_state)
         );
