@@ -118,12 +118,13 @@ mod test {
         counter.push("MELKI".chars(), 42);
 
         let mut melons = counter.counts("MELONA");
-        assert_eq!(melons.next(), Some(("MELONO", 3, 4)));
-        assert_eq!(melons.next(), Some(("MELONOJ", 1, 2)));
-        assert_eq!(melons.next(), Some(("MELONOJN", 1, 4)));
         assert!(melons.next().is_none());
 
-        let mut milkings = counter.counts("MELKIS");
+        let mut melons = counter.counts("MELONO");
+        assert_eq!(melons.next(), Some(("MELONO", 3, 4)));
+        assert!(melons.next().is_none());
+
+        let mut milkings = counter.counts("MELKI");
         assert_eq!(milkings.next(), Some(("MELKI", 1, 42)));
         assert!(milkings.next().is_none());
 

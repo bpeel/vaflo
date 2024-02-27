@@ -14,25 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-static SUFFIXES: [&'static str; 16] = [
-    "AJN",
-    "OJN",
-    "AN",
-    "ON",
-    "AJ",
-    "OJ",
-    "IS",
-    "AS",
-    "US",
-    "OS",
-    "EN",
-    "U",
-    "O",
-    "I",
-    "A",
-    "E",
-];
-
 pub fn stem(word: &str) -> &str {
-    SUFFIXES.iter().find_map(|suffix| word.strip_suffix(suffix)).unwrap_or(word)
+    // FIXME: It would be nice to do something about stemming words in French
+    word
 }
