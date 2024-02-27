@@ -655,7 +655,7 @@ impl Editor {
         if let Some(ch) = char::from_u32(ch as u32) {
             match ch {
                 '\t' => self.toggle_grid(),
-                '.' => self.toggle_edit_direction(),
+                '$' => self.toggle_edit_direction(),
                 ' ' => self.handle_mark(),
                 '\u{0003}' => self.should_quit = true, // Ctrl+C
                 '\u{0010}' => self.pattern_search(), // Ctrl+P
