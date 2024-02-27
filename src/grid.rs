@@ -223,7 +223,7 @@ impl std::str::FromStr for Grid {
 
             match chars.next() {
                 Some(ch) => {
-                    if !ch.is_uppercase() {
+                    if !ch.is_uppercase() && ch != '.' {
                         return Err(GridParseError::NonUppercaseLetter);
                     }
                     *letter = ch;
