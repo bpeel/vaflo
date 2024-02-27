@@ -763,11 +763,11 @@ impl Editor {
         let mut grid = Grid::new();
         let letters = &mut grid.solution.letters;
 
-        // Initialise all of the letters with the X search pattern
+        // Initialise all of the letters with the ‘.’ search pattern
         // placeholder to make it easier to search for words.
         for (i, letter) in letters.iter_mut().enumerate() {
             if !grid::is_gap_position(i) {
-                *letter = 'X';
+                *letter = '.';
             }
         }
 

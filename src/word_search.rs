@@ -26,7 +26,7 @@ fn pattern_matches(pattern: &str, word: &str) -> bool {
         };
 
         let matches = match pattern_ch {
-            'x' => true,
+            '.' => true,
             pattern_ch => pattern_ch == word_ch,
         };
 
@@ -69,8 +69,8 @@ mod test {
     fn simple_search() {
         let dictionary = Dictionary::new(Box::new(DICTIONARY_DATA.clone()));
 
-        assert_eq!(search("xXxXo", &dictionary), &["etoso", "haŭto", "ninĵo"]);
-        assert_eq!(search("xxxxxx", &dictionary), &[""; 0]);
-        assert_eq!(search("xxxx", &dictionary), &[""; 0]);
+        assert_eq!(search("....o", &dictionary), &["etoso", "haŭto", "ninĵo"]);
+        assert_eq!(search("......", &dictionary), &[""; 0]);
+        assert_eq!(search("....", &dictionary), &[""; 0]);
     }
 }
