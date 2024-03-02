@@ -18,12 +18,13 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<html lang="eo">
+<html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Ludu ĉiutagan vortan ludon en Esperanto.">
-    <title>Vaflo</title>
+    <meta name="description"
+          content="A daily word game with the Shavian alphabet.">
+    <title>Shawffle</title>
     <link rel="stylesheet" type="text/css" href="vaflo.css">
     <script type="module" src="vaflo.js"></script>
   </head>
@@ -31,7 +32,7 @@
     <div id="content">
       <div class="title-bar">
         <div class="title-left-space"></div>
-        <h1 id="title">Vaflo</h1>
+        <h1 id="title">Shawffle</h1>
         <svg id="help-button" viewBox="0 0 35.967396 35.9674">
           <path fill="black"
                 d="M 17.984,0.649 c -9.557,0 -17.334,7.777 -17.334,17.334
@@ -53,32 +54,32 @@
                    -0.139,0.788 -0.046,0.464 -0.046,1.267 z" />
         </svg>
       </div>
-      <p id="message" style="display: block">Ŝarĝado…</p>
+      <p id="message" style="display: block">Loading…</p>
       <div id="game-contents" style="display: none">
         <div id="game-grid"></div>
         <div id="swaps-remaining"></div>
-        <button id="share-button" style="display: none">Kunhavigi</button>
+        <button id="share-button" style="display: none">Share</button>
         <div id="statistics" style="display: none">
-          <h2>Statistikoj</h2>
+          <h2>Statistics</h2>
           <table>
             <tr>
-              <th scope="row">Luditaj</th>
+              <th scope="row">Played</th>
               <td id="stats-played"></td>
             </tr>
             <tr>
-              <th scope="row">Sumaj steloj</th>
+              <th scope="row">Total stars</th>
               <td id="stats-total-stars"></td>
             </tr>
             <tr>
-              <th scope="row">Aktuala gajnvico</th>
+              <th scope="row">Current streak</th>
               <td id="stats-current-streak"></td>
             </tr>
             <tr>
-              <th scope="row">Plej bona gajnvico</th>
+              <th scope="row">Best streak</th>
               <td id="stats-best-streak"></td>
             </tr>
           </table>
-          <h2>Distribuo de steloj</h2>
+          <h2>Star distribution</h2>
           <table>
             <tr><th scope="row">X</th><td id="stats-fail-count"></td></tr>
             <tr><th scope="row">0⭐</th><td id="stats-0-stars"></td></tr>
@@ -89,17 +90,17 @@
             <tr><th scope="row">5⭐</th><td id="stats-5-stars"></td></tr>
           </table>
           <p>
-            Vaflo estas senpaga kaj libera programo. La fontokodo
-            estas havebla
-            ĉe <a href="https://github.com/bpeel/vaflo">Github</a>. Se
-            vi volas kaj povas donaci por subteni la daŭripovon de la
-            retpaĝo, tio eblas
-            ĉe <a href="https://eo.liberapay.com/bpeel/donate">Liberapay</a>.
-            Dankon!
+            Shawffle is free and open source. The source code is
+            available on
+            <a href="https://github.com/bpeel/vaflo?shavian">Github</a>.
+            If you have some money to spare and want to support the
+            site, you can make a donation with
+            <a href="https://eo.liberapay.com/bpeel/donate">Liberapay</a>.
+            𐑔𐑨𐑙𐑒 𐑿!
           </p>
           <p>
-            <a href="https://eo.liberapay.com/bpeel/donate">
-              <img alt="Donaci per Liberapay" src="donaci.svg">
+            <a href="https://en.liberapay.com/bpeel/donate">
+              <img alt="Donate with Liberapay" src="donaci.svg">
             </a>
           </p>
         </div>
@@ -109,7 +110,7 @@
       <div id="instructions">
         <div class="title-bar">
           <div class="title-left-space"></div>
-          <h1 id="title">Kiel ludi</h1>
+          <h1 id="title">How to play</h1>
           <svg id="close-instructions-cross" viewBox="0 0 35.967396 35.9674">
             <path stroke="black" stroke-width="5"
                   d="M 32.670,3.245 l -28.990,29.793
@@ -117,25 +118,28 @@
           </svg>
         </div>
         <p>
-          Trenu la literojn por fari interŝanĝojn ĝis ĉiuj linioj kaj
-          kolonoj faras vorton.
+          Shawffle is a word game using
+          the <a href="https://www.shavian.info/">Shavian
+          alphabet</a>. Drag the letters to swap them until every row
+          and column has a valid word.
         </p>
-        <img src="drag.svg" alt="Ekzemplo de trenado de literoj">
+        <img src="drag.svg" alt="Example of dragging letters">
         <p>
-          La koloro de la litero indikas ĉu ĝi aperas en la vorto kaj
-          ĉu ĝi estas ĉe la ĝusta loko.
+          The colour of the letter indicates whether it appears in the
+          word and whether it’s in the right place.
         </p>
-        <img src="colors.svg" alt="Klarigo pri la koloroj de la literoj">
+        <img src="colors.svg" alt="Explanation of the colours of the letters">
         <p>
-          Se flava litero aperas ĉe la kruciĝo de du vortoj, tio
-          signifas ke la litero apartenas al unu vorto aŭ eĉ ambaŭ.
+          If a yellow letter appears at the intersection of two words,
+          that means that the letter belongs to one of the words or
+          maybe both.
         </p>
         <img src="cross.svg" alt="Klarigo pri tio, kio okazas ĉe kruciĝoj">
         <p>
-          Vi rajtas fari 15 interŝanĝojn kaj ĉiu puzlo estas sovebla
-          per 10. Bonan ludadon!
+          You can make up to 15 swaps and every puzzle can be solved
+          with just 10 swaps. 𐑜𐑫𐑛 𐑤𐑳𐑒!
         </p>
-        <button id="close-instructions">Fermi</button>
+        <button id="close-instructions">Close</button>
       </div>
     </div>
   </body>

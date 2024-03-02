@@ -27,12 +27,12 @@
     <g id="letter-1">
       <use href="#tile-fill" fill="#6fb05c" />
       <use href="#tile-outline" fill="#649e53" />
-      <text fill="white" x="10.9565" y="17">V</text>
+      <text fill="white" x="10.9565" y="17">𐑢</text>
     </g>
     <g id="letter-3" transform="translate(48.288,0)">
       <use href="#tile-fill" fill="#6fb05c" />
       <use href="#tile-outline" fill="#649e53" />
-      <text fill="white" x="10.9565" y="17">F</text>
+      <text fill="white" x="10.9565" y="17">𐑓</text>
     </g>
     <g id="letter-4" transform="translate(72.432,0)">
       <animateTransform id="returnTransform"
@@ -61,12 +61,12 @@
              attributeName="fill"
              to="#649e53"/>
       </use>
-      <text fill="white" x="10.9565" y="17">A</text>
+      <text fill="white" x="10.9565" y="17">𐑪</text>
     </g>
     <g id="letter-5" transform="translate(96.576,0)">
       <use href="#tile-fill" fill="#6fb05c" />
       <use href="#tile-outline" fill="#649e53" />
-      <text fill="white" x="10.9565" y="17">O</text>
+      <text fill="white" x="10.9565" y="17">𐑤</text>
     </g>
     <g id="letter-2" transform="translate(72.432,0)">
       <animateTransform attributeName="transform"
@@ -88,7 +88,7 @@
              attributeName="fill"
              to="#649e53"/>
       </use>
-      <text fill="white" x="10.9565" y="17">L</text>
+      <text fill="white" x="10.9565" y="17">𐑩</text>
     </g>
     <path id="pointer"
           transform="translate(48.288,0)"

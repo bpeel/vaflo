@@ -286,7 +286,7 @@ impl Statistics {
 
         let is_solved = save_state.grid.puzzle.is_solved();
 
-        write!(results, "#vaflo{} ", puzzle_num + 1).unwrap();
+        write!(results, "#shawffle{} ", puzzle_num + 1).unwrap();
 
         if is_solved {
             write!(results, "{}", save_state.swaps_remaining).unwrap();
@@ -329,7 +329,7 @@ impl Statistics {
         write!(
             results,
             "\n\
-             {} gajnvico: {}\n\
+             {} streak: {}\n\
              https://vaflo.net",
             if is_solved {
                 '🔥'
@@ -617,7 +617,7 @@ mod test {
         let save_state = save_states.values().next().unwrap();
 
         assert_eq!(
-            "#vaflo5 0/5\n\
+            "#shawffle5 0/5\n\
              \n\
              🟩🟩🟩🟩🟩\n\
              🟩⬜🟩⬜🟩\n\
@@ -625,7 +625,7 @@ mod test {
              🟩⬜🟩⬜🟩\n\
              🟩🟩🟩🟩🟩\n\
              \n\
-             🔥 gajnvico: 1\n\
+             🔥 streak: 1\n\
              https://vaflo.net",
             &statistics.share_text(4, &save_state)
         );
@@ -635,7 +635,7 @@ mod test {
         let save_state = save_states.values().next().unwrap();
 
         assert_eq!(
-            "#vaflo5 1/5\n\
+            "#shawffle5 1/5\n\
              \n\
              🟩🟩🟩🟩🟩\n\
              🟩⬜🟩⬜🟩\n\
@@ -643,7 +643,7 @@ mod test {
              🟩⬜🟩⬜🟩\n\
              🟩🟩🟩🟩🟩\n\
              \n\
-             🔥 gajnvico: 1\n\
+             🔥 streak: 1\n\
              https://vaflo.net",
             &statistics.share_text(4, &save_state)
         );
@@ -653,7 +653,7 @@ mod test {
         let save_state = save_states.values().next().unwrap();
 
         assert_eq!(
-            "#vaflo5 2/5\n\
+            "#shawffle5 2/5\n\
              \n\
              🟩🟩🟩🟩🟩\n\
              🟩⭐🟩⬜🟩\n\
@@ -661,7 +661,7 @@ mod test {
              🟩⬜🟩⭐🟩\n\
              🟩🟩🟩🟩🟩\n\
              \n\
-             🔥 gajnvico: 1\n\
+             🔥 streak: 1\n\
              https://vaflo.net",
             &statistics.share_text(4, &save_state)
         );
@@ -671,7 +671,7 @@ mod test {
         let save_state = save_states.values().next().unwrap();
 
         assert_eq!(
-            "#vaflo5 3/5\n\
+            "#shawffle5 3/5\n\
              \n\
              🟩🟩🟩🟩🟩\n\
              🟩⭐🟩⬜🟩\n\
@@ -679,7 +679,7 @@ mod test {
              🟩⬜🟩⭐🟩\n\
              🟩🟩🟩🟩🟩\n\
              \n\
-             🔥 gajnvico: 1\n\
+             🔥 streak: 1\n\
              https://vaflo.net",
             &statistics.share_text(4, &save_state)
         );
@@ -689,7 +689,7 @@ mod test {
         let save_state = save_states.values().next().unwrap();
 
         assert_eq!(
-            "#vaflo5 4/5\n\
+            "#shawffle5 4/5\n\
              \n\
              🟩🟩🟩🟩🟩\n\
              🟩⭐🟩⭐🟩\n\
@@ -697,7 +697,7 @@ mod test {
              🟩⭐🟩⭐🟩\n\
              🟩🟩🟩🟩🟩\n\
              \n\
-             🔥 gajnvico: 1\n\
+             🔥 streak: 1\n\
              https://vaflo.net",
             &statistics.share_text(4, &save_state)
         );
@@ -707,7 +707,7 @@ mod test {
         let save_state = save_states.values().next().unwrap();
 
         assert_eq!(
-            "#vaflo5 5/5\n\
+            "#shawffle5 5/5\n\
              \n\
              🟩🟩🟩🟩🟩\n\
              🟩⭐🟩⭐🟩\n\
@@ -715,7 +715,7 @@ mod test {
              🟩⭐🟩⭐🟩\n\
              🟩🟩🟩🟩🟩\n\
              \n\
-             🔥 gajnvico: 1\n\
+             🔥 streak: 1\n\
              https://vaflo.net",
             &statistics.share_text(4, &save_state)
         );
@@ -731,7 +731,7 @@ mod test {
         let save_state = save_states.values().next().unwrap();
 
         assert_eq!(
-            "#vaflo5 X/5\n\
+            "#shawffle5 X/5\n\
              \n\
              🟩🟩⬛⬛🟩\n\
              🟩⬜⬛⬜⬛\n\
@@ -739,7 +739,7 @@ mod test {
              ⬛⬜⬛⬜🟩\n\
              ⬛⬛🟩⬛⬛\n\
              \n\
-             💔 gajnvico: 0\n\
+             💔 streak: 0\n\
              https://vaflo.net",
             &statistics.share_text(4, &save_state)
         );
