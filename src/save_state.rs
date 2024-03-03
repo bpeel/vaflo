@@ -330,7 +330,7 @@ impl Statistics {
             results,
             "\n\
              {} streak: {}\n\
-             https://vaflo.net",
+             https://shawffle.busydoingnothing.co.uk",
             if is_solved {
                 '🔥'
             } else {
@@ -626,7 +626,7 @@ mod test {
              🟩🟩🟩🟩🟩\n\
              \n\
              🔥 streak: 1\n\
-             https://vaflo.net",
+             https://shawffle.busydoingnothing.co.uk",
             &statistics.share_text(4, &save_state)
         );
 
@@ -644,7 +644,7 @@ mod test {
              🟩🟩🟩🟩🟩\n\
              \n\
              🔥 streak: 1\n\
-             https://vaflo.net",
+             https://shawffle.busydoingnothing.co.uk",
             &statistics.share_text(4, &save_state)
         );
 
@@ -662,7 +662,7 @@ mod test {
              🟩🟩🟩🟩🟩\n\
              \n\
              🔥 streak: 1\n\
-             https://vaflo.net",
+             https://shawffle.busydoingnothing.co.uk",
             &statistics.share_text(4, &save_state)
         );
 
@@ -680,7 +680,7 @@ mod test {
              🟩🟩🟩🟩🟩\n\
              \n\
              🔥 streak: 1\n\
-             https://vaflo.net",
+             https://shawffle.busydoingnothing.co.uk",
             &statistics.share_text(4, &save_state)
         );
 
@@ -698,7 +698,7 @@ mod test {
              🟩🟩🟩🟩🟩\n\
              \n\
              🔥 streak: 1\n\
-             https://vaflo.net",
+             https://shawffle.busydoingnothing.co.uk",
             &statistics.share_text(4, &save_state)
         );
 
@@ -716,7 +716,7 @@ mod test {
              🟩🟩🟩🟩🟩\n\
              \n\
              🔥 streak: 1\n\
-             https://vaflo.net",
+             https://shawffle.busydoingnothing.co.uk",
             &statistics.share_text(4, &save_state)
         );
     }
@@ -740,7 +740,7 @@ mod test {
              ⬛⬛🟩⬛⬛\n\
              \n\
              💔 streak: 0\n\
-             https://vaflo.net",
+             https://shawffle.busydoingnothing.co.uk",
             &statistics.share_text(4, &save_state)
         );
     }
