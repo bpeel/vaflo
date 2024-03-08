@@ -51,25 +51,6 @@ const N_SHUFFLE_SWAPS: usize = 10;
 const WRONG_LETTER_COLOR: i16 = 1;
 const FIRST_STATE_COLOR: i16 = 2;
 
-static SHAVIAN_LIGATURE_MAP: [(char, char, char); 16] = [
-    (';', '3', '𐑻'),
-    (';', 'E', '𐑺'),
-    ('@', 'r', '𐑼'),
-    ('A', 'r', '𐑸'),
-    ('O', 'r', '𐑹'),
-    ('a', 'i', '𐑲'),
-    ('a', 'u', '𐑬'),
-    ('e', 'e', '𐑰'),
-    ('e', 'i', '𐑱'),
-    ('i', 'r', '𐑽'),
-    ('i', 'x', '𐑾'),
-    ('o', 'i', '𐑶'),
-    ('o', 'o', '𐑵'),
-    ('o', 'u', '𐑴'),
-    ('x', 'r', '𐑼'),
-    ('y', 'u', '𐑿'),
-];
-
 enum EditDirection {
     Right,
     Down,
@@ -120,7 +101,6 @@ struct Editor {
     shortest_swap_solution: Option<usize>,
     word_counter: WordCounter,
     search_results: SearchResults,
-    queued_letter: Option<usize>,
 }
 
 enum SolutionEventKind {
@@ -279,29 +259,18 @@ fn date_string_for_puzzle(puzzle_num: usize) -> String {
 }
 
 fn remap_shavian_keyboard(ch: char) -> Option<char> {
-    static MAP: [(char, char); 38] = [
-        ('@', '𐑩'), ('A', '𐑭'), ('C', '·'), ('D', '𐑞'), ('E', '𐑧'), ('J', '𐑗'),
-        ('N', '𐑙'), ('O', '𐑷'), ('Q', '𐑪'), ('S', '𐑖'), ('T', '𐑔'), ('U', '𐑫'),
-        ('V', '𐑳'), ('Z', '𐑠'), ('b', '𐑚'), ('c', '·'), ('d', '𐑛'), ('f', '𐑓'),
-        ('g', '𐑜'), ('h', '𐑣'), ('i', '𐑦'), ('j', '𐑡'), ('k', '𐑒'), ('l', '𐑤'),
-        ('m', '𐑥'), ('n', '𐑯'), ('p', '𐑐'), ('q', '𐑪'), ('r', '𐑮'), ('s', '𐑕'),
-        ('t', '𐑑'), ('u', '𐑫'), ('v', '𐑝'), ('w', '𐑢'), ('x', '𐑩'), ('y', '𐑘'),
-        ('z', '𐑟'), ('{', '𐑨'),
+    static MAP: [(char, char); 48] = [
+        ('A', '𐑸'), ('D', '𐑞'), ('E', '𐑼'), ('H', '𐑷'), ('I', '𐑰'), ('J', '𐑡'),
+        ('N', '𐑙'), ('O', '𐑴'), ('Q', '𐑻'), ('T', '𐑔'), ('U', '𐑵'), ('V', '𐑿'),
+        ('W', '𐑬'), ('X', '𐑗'), ('Y', '𐑶'), ('a', '𐑨'), ('b', '𐑚'), ('d', '𐑛'),
+        ('e', '𐑩'), ('f', '𐑓'), ('g', '𐑜'), ('h', '𐑣'), ('i', '𐑦'), ('j', '𐑠'),
+        ('k', '𐑒'), ('l', '𐑤'), ('m', '𐑥'), ('n', '𐑯'), ('o', '𐑪'), ('p', '𐑐'),
+        ('q', '𐑹'), ('r', '𐑮'), ('s', '𐑕'), ('t', '𐑑'), ('u', '𐑳'), ('v', '𐑝'),
+        ('w', '𐑢'), ('x', '𐑖'), ('y', '𐑘'), ('z', '𐑟'), ('À', '𐑭'), ('È', '𐑺'),
+        ('É', '𐑲'), ('Ê', '𐑽'), ('à', '𐑫'), ('è', '𐑧'), ('é', '𐑱'), ('ê', '𐑾')
     ];
 
     MAP.binary_search_by_key(&ch, |pair| pair.0).ok().map(|pos| MAP[pos].1)
-}
-
-fn find_shavian_ligature(ch: char) -> Option<usize> {
-    SHAVIAN_LIGATURE_MAP.binary_search_by_key(&ch, |map| map.0)
-        .ok()
-        .map(|mut start_pos| {
-            while start_pos > 0 && SHAVIAN_LIGATURE_MAP[start_pos - 1].0 == ch {
-                start_pos -= 1;
-            }
-
-            start_pos
-        })
 }
 
 impl Editor {
@@ -334,7 +303,6 @@ impl Editor {
             shortest_swap_solution: None,
             word_counter: WordCounter::new(),
             search_results: SearchResults::None,
-            queued_letter: None,
         };
 
         editor.update_words();
@@ -442,10 +410,6 @@ impl Editor {
 
                 y += 1;
             }
-        }
-
-        if let Some(pos) = self.queued_letter {
-            self.draw_queued_letter(SHAVIAN_LIGATURE_MAP[pos].0);
         }
 
         self.position_cursor();
@@ -564,13 +528,6 @@ impl Editor {
         self.draw_search_words(x - 1, y + 2, words);
     }
 
-    fn draw_queued_letter(&self, letter: char) {
-        self.position_cursor();
-        ncurses::attron(ncurses::A_UNDERLINE());
-        addch_utf8(letter);
-        ncurses::attroff(ncurses::A_UNDERLINE());
-    }
-
     fn position_cursor(&self) {
         let x = match self.current_grid {
             GridChoice::Solution => 0,
@@ -669,8 +626,6 @@ impl Editor {
     }
 
     fn handle_key_code(&mut self, key: i32) {
-        self.flush_queued_letter();
-
         match key {
             ncurses::KEY_UP => self.move_cursor(0, -1),
             ncurses::KEY_DOWN => self.move_cursor(0, 1),
@@ -711,55 +666,8 @@ impl Editor {
         }
     }
 
-    fn handle_letter(&mut self, ch: char) {
-        if let Some(ch) = remap_shavian_keyboard(ch) {
-            self.add_character(ch);
-        } else if ch.is_alphabetic() || ch == '.' {
-            for ch in ch.to_uppercase() {
-                self.add_character(ch);
-            }
-        }
-    }
-
-    fn flush_queued_letter(&mut self) {
-        if let Some(pos) = self.queued_letter.take() {
-            self.handle_letter(SHAVIAN_LIGATURE_MAP[pos].0);
-        }
-    }
-
-    fn handle_queued_letter(&mut self, ch: char) -> bool {
-        if let Some(pos) = self.queued_letter {
-            let first_letter = SHAVIAN_LIGATURE_MAP[pos].0;
-
-            for pos in pos..SHAVIAN_LIGATURE_MAP.len() {
-                let map = &SHAVIAN_LIGATURE_MAP[pos];
-
-                if map.0 != first_letter || map.1 > ch {
-                    break;
-                }
-
-                if map.1 == ch {
-                    self.queued_letter = None;
-                    self.add_character(map.2);
-                    return true;
-                }
-            }
-
-            self.flush_queued_letter();
-            false
-        } else {
-            false
-        }
-    }
-
     fn handle_char(&mut self, ch: ncurses::winttype) {
         if let Some(ch) = char::from_u32(ch as u32) {
-            if self.handle_queued_letter(ch) {
-                return;
-            }
-
-            assert!(self.queued_letter.is_none());
-
             match ch {
                 '\t' => self.toggle_grid(),
                 '$' => self.toggle_edit_direction(),
@@ -771,11 +679,12 @@ impl Editor {
                 '\u{000e}' => self.new_puzzle(), // Ctrl+N
                 '\u{0018}' => self.find_crosswords(), // Ctrl+X
                 ch => {
-                    if let Some(pos) = find_shavian_ligature(ch) {
-                        self.queued_letter = Some(pos);
-                        self.redraw();
-                    } else {
-                        self.handle_letter(ch);
+                    if let Some(ch) = remap_shavian_keyboard(ch) {
+                        self.add_character(ch);
+                    } else if ch.is_alphabetic() || ch == '.' {
+                        for ch in ch.to_uppercase() {
+                            self.add_character(ch);
+                        }
                     }
                 },
             }
