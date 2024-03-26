@@ -23,6 +23,7 @@ mod word_grid;
 mod grid_solver;
 mod pairs;
 mod swap_solver;
+mod shavian;
 
 use std::process::ExitCode;
 use std::io;

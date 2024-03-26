@@ -25,6 +25,7 @@ mod swap_solver;
 mod grid;
 mod stars;
 mod stem_word;
+mod shavian;
 
 use std::process::ExitCode;
 use letter_grid::LetterGrid;

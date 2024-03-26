@@ -19,6 +19,8 @@ mod wasm_game;
 #[cfg(any(target_arch = "wasm32", test))]
 mod grid;
 #[cfg(any(target_arch = "wasm32", test))]
+mod shavian;
+#[cfg(any(target_arch = "wasm32", test))]
 mod save_state;
 #[cfg(any(target_arch = "wasm32", test))]
 mod stars;

@@ -28,6 +28,7 @@ mod stem_word;
 mod solver_state;
 mod crossword_solver;
 mod word_search;
+mod shavian;
 
 use std::process::ExitCode;
 use letter_grid::LetterGrid;
