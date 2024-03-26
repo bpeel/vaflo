@@ -20,14 +20,17 @@ mod trie_builder;
 use std::process::ExitCode;
 use serde::Deserialize;
 use std::collections::HashMap;
-use std::io::BufWriter;
+use std::io::{BufWriter, Write};
 use std::fs::File;
 use trie_builder::TrieBuilder;
 
 static DICTIONARY_FILENAME: &'static str = "data/dictionary.bin";
+static LATIN_MAP_FILENAME: &'static str = "data/latin-map.txt";
 
 #[derive(Deserialize)]
 struct Entry {
+    #[serde(rename = "Latn")]
+    latin: String,
     #[serde(rename = "Shaw")]
     shavian: String,
     pos: String,
@@ -67,10 +70,12 @@ fn main() -> ExitCode {
     };
 
     let mut builder = TrieBuilder::new();
+    let mut latin_map = HashMap::<&str, &str>::new();
 
     for entry in map.values().flatten() {
         if entry.is_allowed() {
             builder.add_word(&entry.shavian);
+            latin_map.insert(&entry.shavian, &entry.latin);
         }
     }
 
@@ -78,6 +83,23 @@ fn main() -> ExitCode {
         builder.into_dictionary(&mut BufWriter::new(file))
     }) {
         eprintln!("{}: {}", DICTIONARY_FILENAME, e);
+        return ExitCode::FAILURE;
+    }
+
+    let mut keys = latin_map.keys().map(|&k| k).collect::<Vec<&str>>();
+
+    keys.sort();
+
+    if let Err(e) = File::create(LATIN_MAP_FILENAME).and_then(|file| {
+        let mut file = BufWriter::new(file);
+
+        for &key in keys.iter() {
+            writeln!(file, "{} {}", key, latin_map[key])?;
+        }
+
+        Ok(())
+    }) {
+        eprintln!("{}: {}", LATIN_MAP_FILENAME, e);
         return ExitCode::FAILURE;
     }
 
