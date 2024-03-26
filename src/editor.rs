@@ -37,9 +37,10 @@ use dictionary::Dictionary;
 use std::ffi::c_int;
 use std::sync::{Arc, mpsc};
 use std::thread;
+use std::collections::HashMap;
 use word_grid::WordGrid;
 use grid_solver::GridSolver;
-use std::io::{BufRead, Write};
+use std::io::{BufRead, BufReader, Write};
 use rand::Rng;
 use grid::{Grid, SolutionGrid, PuzzleGrid, PuzzleSquareState};
 use word_counter::WordCounter;
@@ -84,6 +85,7 @@ enum SearchResults {
 
 struct Editor {
     dictionary: Arc<Dictionary>,
+    latin_map: HashMap<String, String>,
     solver_state: Arc<SolverStatePair>,
     should_quit: bool,
     grid_x: i32,
@@ -278,6 +280,7 @@ impl Editor {
     fn new(
         puzzles: Vec<Grid>,
         dictionary: Arc<Dictionary>,
+        latin_map: HashMap<String, String>,
         solver_state: Arc<SolverStatePair>,
         grid_x: i32,
         grid_y: i32,
@@ -286,6 +289,7 @@ impl Editor {
 
         let mut editor = Editor {
             dictionary,
+            latin_map,
             solver_state,
             should_quit: false,
             grid_x,
@@ -435,6 +439,11 @@ impl Editor {
                     WordState::Invalid => "❌",
                 }
             );
+
+            if let Some(latin) = self.latin_map.get(&word.text) {
+                ncurses::addch(' ' as u32);
+                ncurses::addstr(latin);
+            }
 
             for (word, count, last_use)
                 in self.word_counter.counts(&word.text)
@@ -874,6 +883,33 @@ fn load_dictionary() -> Result<Arc<Dictionary>, ()> {
     }
 }
 
+fn load_latin_map() -> Result<HashMap<String, String>, ()> {
+    let filename = std::env::args_os()
+        .nth(2)
+        .unwrap_or("data/latin-map.txt".into());
+
+    let result = std::fs::File::open(&filename).and_then(|file| {
+        let mut map = HashMap::new();
+
+        for line in BufReader::new(file).lines() {
+            if let Some((shavian, latin)) = line?.split_once(' ') {
+                map.insert(shavian.to_string(), latin.to_string());
+            }
+        }
+
+        Ok(map)
+    });
+
+    result.map_err(|e| {
+        eprintln!(
+            "{}: {}",
+            filename.to_string_lossy(),
+            e,
+        );
+        ()
+    })
+}
+
 fn load_puzzles() -> Result<Vec<Grid>, ()> {
     let filename = "puzzles.txt";
     let mut puzzles = Vec::new();
@@ -1186,6 +1222,11 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     };
 
+    let Ok(latin_map) = load_latin_map()
+    else {
+        return ExitCode::FAILURE;
+    };
+
     let Ok(puzzles) = load_puzzles()
     else {
         return ExitCode::FAILURE;
@@ -1235,6 +1276,7 @@ fn main() -> ExitCode {
     let mut editor = Editor::new(
         puzzles,
         dictionary,
+        latin_map,
         Arc::clone(&solver_thread.solver_state),
         0,
         0,
