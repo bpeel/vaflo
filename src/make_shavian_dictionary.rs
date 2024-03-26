@@ -35,6 +35,7 @@ struct Entry {
     shavian: String,
     pos: String,
     var: String,
+    freq: u32,
 }
 
 static BANNED_POSITIONS: [&'static str; 1] = [
@@ -70,13 +71,13 @@ fn main() -> ExitCode {
     };
 
     let mut builder = TrieBuilder::new();
-    let mut latin_map = HashMap::<&str, &str>::new();
+    let mut entries = map.into_values()
+        .flatten()
+        .filter(Entry::is_allowed)
+        .collect::<Vec::<Entry>>();
 
-    for entry in map.values().flatten() {
-        if entry.is_allowed() {
-            builder.add_word(&entry.shavian);
-            latin_map.insert(&entry.shavian, &entry.latin);
-        }
+    for entry in entries.iter() {
+        builder.add_word(&entry.shavian);
     }
 
     if let Err(e) = File::create(DICTIONARY_FILENAME).and_then(|file| {
@@ -86,15 +87,19 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     }
 
-    let mut keys = latin_map.keys().map(|&k| k).collect::<Vec<&str>>();
-
-    keys.sort();
+    entries.sort_by(|a, b| {
+        a.shavian.cmp(&b.shavian)
+            .then(b.freq.cmp(&a.freq))
+            .then(a.latin.cmp(&b.latin))
+    });
 
     if let Err(e) = File::create(LATIN_MAP_FILENAME).and_then(|file| {
         let mut file = BufWriter::new(file);
 
-        for &key in keys.iter() {
-            writeln!(file, "{} {}", key, latin_map[key])?;
+        for (i, entry) in entries.iter().enumerate() {
+            if i == 0 || entries[i - 1].shavian != entry.shavian {
+                writeln!(file, "{} {}", entry.shavian, entry.latin)?;
+            }
         }
 
         Ok(())
