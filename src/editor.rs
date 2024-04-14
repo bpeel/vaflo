@@ -42,6 +42,7 @@ use word_grid::WordGrid;
 use grid_solver::GridSolver;
 use std::io::{BufRead, BufReader, Write};
 use rand::Rng;
+use rand::seq::SliceRandom;
 use grid::{Grid, SolutionGrid, PuzzleGrid, PuzzleSquareState};
 use word_counter::WordCounter;
 use solver_state::{SolverState, SolverStatePair};
@@ -686,6 +687,7 @@ impl Editor {
                 '\u{0010}' => self.pattern_search(), // Ctrl+P
                 '\u{0012}' => self.shuffle_puzzle(), // Ctrl+R
                 '\u{0013}' => self.handle_swap(), // Ctrl+S
+                '\u{000a}' => self.shuffle_search_results(), // Ctrl+J
                 '\u{000e}' => self.new_puzzle(), // Ctrl+N
                 '\u{0018}' => self.find_crosswords(), // Ctrl+X
                 ch => {
@@ -847,6 +849,27 @@ impl Editor {
         self.search_results = SearchResults::Words(words);
 
         self.redraw();
+    }
+
+    fn shuffle_search_results(&mut self) {
+        let mut rng = rand::thread_rng();
+
+        match self.search_results {
+            SearchResults::None => (),
+            SearchResults::Crosswords(ref mut crosswords) => {
+                for crossword in crosswords.iter_mut() {
+                    crossword.a_words.shuffle(&mut rng);
+                    crossword.b_words.shuffle(&mut rng);
+                }
+
+                crosswords.shuffle(&mut rng);
+            },
+            SearchResults::Words(ref mut words) => {
+                words.shuffle(&mut rng);
+            },
+        }
+
+        self.redraw()
     }
 
     fn update_word_counts(&mut self) {
