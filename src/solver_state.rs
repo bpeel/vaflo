@@ -36,6 +36,19 @@ impl SolverStatePair {
         }
     }
 
+    pub fn later_task_is_pending(
+        &self,
+        completed_grid_id: Option<usize>,
+    ) -> bool {
+        match *self.state.lock().unwrap() {
+            SolverState::Idle => false,
+            SolverState::Task { grid_id, .. } => {
+                completed_grid_id.map(|id| id < grid_id).unwrap_or(true)
+            },
+            SolverState::Quit => true,
+        }
+    }
+
     pub fn wait(&self, completed_grid_id: Option<usize>) -> SolverState {
         let mut state = self.state.lock().unwrap();
 

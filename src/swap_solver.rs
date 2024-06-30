@@ -57,12 +57,14 @@ where
     Some(solution)
 }
 
-pub fn solve<T>(
+pub fn solve_cancellable<T, F>(
     start: &[T],
-    target: &[T]
+    target: &[T],
+    mut should_cancel: F,
 ) -> Option<Vec<(usize, usize)>>
 where
-    T: Hash + Clone + Eq
+    T: Hash + Clone + Eq,
+    F: FnMut() -> bool,
 {
     assert_eq!(start.len(), target.len());
 
@@ -76,6 +78,8 @@ where
     let mut stack = Vec::<StackEntry>::new();
     let mut pair_iter = pairs::Iter::new(start.len());
 
+    let mut counter = 0usize;
+
     loop {
         match pair_iter.next() {
             Some((a, b)) => {
@@ -88,6 +92,12 @@ where
                 // the right place
                 if state[a] != target[b] && state[b] != target[a] {
                     continue;
+                }
+
+                counter += 1;
+
+                if counter & 0x3ffff == 0 && should_cancel() {
+                    return None;
                 }
 
                 let n_moves = stack.len() + 1;
@@ -156,4 +166,14 @@ where
     }
 
     best_solution
+}
+
+pub fn solve<T>(
+    start: &[T],
+    target: &[T],
+) -> Option<Vec<(usize, usize)>>
+where
+    T: Hash + Clone + Eq,
+{
+    solve_cancellable(start, target, || false)
 }
