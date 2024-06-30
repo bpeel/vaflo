@@ -234,15 +234,24 @@ fn draw_grid(
     );
 }
 
-fn minimum_swaps(grid: &Grid) -> Option<usize> {
+fn minimum_swaps<F>(
+    grid: &Grid,
+    should_cancel: F,
+) -> Option<usize>
+where
+    F: FnMut() -> bool,
+{
     let puzzle = grid.puzzle
         .squares
         .iter()
         .map(|square| grid.solution.letters[square.position])
         .collect::<Vec<char>>();
 
-    swap_solver::solve(&puzzle, &grid.solution.letters)
-        .map(|solution| solution.len())
+    swap_solver::solve_cancellable(
+        &puzzle,
+        &grid.solution.letters,
+        should_cancel
+    ).map(|solution| solution.len())
 }
 
 #[inline(always)]
@@ -1137,7 +1146,11 @@ impl SolverThread {
 
                 completed_grid_id = Some(grid_id);
 
-                if let Some(n_swaps) = minimum_swaps(&grid) {
+                let should_cancel = || {
+                    swap_solver_state.later_task_is_pending(completed_grid_id)
+                };
+
+                if let Some(n_swaps) = minimum_swaps(&grid, should_cancel) {
                     let event = SolutionEvent::new(
                         grid_id,
                         SolutionEventKind::SwapSolution(n_swaps),
