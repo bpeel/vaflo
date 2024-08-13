@@ -46,6 +46,8 @@ struct Cli {
     puzzles: Option<OsString>,
     #[arg(short, long, value_name = "FILE")]
     dictionary: Option<OsString>,
+    #[arg(short, long, help = "Show a message for OK puzzles too")]
+    ok: bool,
 }
 
 enum PuzzleMessageKind {
@@ -56,6 +58,7 @@ enum PuzzleMessageKind {
     MinimumSwaps(usize),
     BadWord(String),
     DuplicateWord(String),
+    Ok,
 }
 
 struct PuzzleMessage {
@@ -75,6 +78,7 @@ struct PuzzleQueueData {
 impl fmt::Display for PuzzleMessageKind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            PuzzleMessageKind::Ok => write!(f, "ok"),
             PuzzleMessageKind::GridParseError(e) => write!(f, "{}", e),
             PuzzleMessageKind::LetterGridParseError(e) => write!(f, "{}", e),
             PuzzleMessageKind::SolutionCount(count) => {
@@ -242,6 +246,8 @@ fn check_puzzles(
     tx: mpsc::Sender<PuzzleMessage>,
 ) -> Result<(), mpsc::SendError<PuzzleMessage>> {
     while let Some((puzzle_num, puzzle_string)) = puzzles.next() {
+        let mut ok = true;
+
         let grid = match puzzle_string.parse::<Grid>() {
             Ok(grid) => grid,
             Err(e) => {
@@ -264,6 +270,8 @@ fn check_puzzles(
                         puzzle_num,
                         kind: PuzzleMessageKind::SolutionCount(solution_count),
                     })?;
+
+                    ok = false;
                 }
             },
             Err(e) => {
@@ -271,6 +279,8 @@ fn check_puzzles(
                     puzzle_num,
                     kind: PuzzleMessageKind::LetterGridParseError(e),
                 })?;
+
+                ok = false;
             },
         }
 
@@ -283,6 +293,8 @@ fn check_puzzles(
                         puzzle_num,
                         kind: PuzzleMessageKind::MinimumSwaps(swaps),
                     })?;
+
+                    ok = false;
                 }
             },
             None => {
@@ -290,7 +302,16 @@ fn check_puzzles(
                     puzzle_num,
                     kind: PuzzleMessageKind::NoSwapSolutionFound,
                 })?;
+
+                ok = false;
             },
+        }
+
+        if ok {
+            tx.send(PuzzleMessage {
+                puzzle_num,
+                kind: PuzzleMessageKind::Ok,
+            })?;
         }
     }
 
@@ -332,9 +353,22 @@ fn main() -> ExitCode {
     let mut result = ExitCode::SUCCESS;
 
     for message in rx {
-        result = ExitCode::FAILURE;
+        match message.kind {
+            PuzzleMessageKind::Ok => {
+                if cli.ok {
+                    println!(
+                        "puzzle {}: {}",
+                        message.puzzle_num + 1,
+                        message.kind,
+                    );
+                }
+            },
+            kind => {
+                result = ExitCode::FAILURE;
 
-        eprintln!("puzzle {}: {}", message.puzzle_num + 1, message.kind);
+                eprintln!("puzzle {}: {}", message.puzzle_num + 1, kind);
+            },
+        }
     }
 
     for handle in handles {
