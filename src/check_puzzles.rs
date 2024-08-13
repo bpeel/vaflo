@@ -48,6 +48,9 @@ struct Cli {
     dictionary: Option<OsString>,
     #[arg(short, long, help = "Show a message for OK puzzles too")]
     ok: bool,
+    #[arg(short, long, value_name = "COUNT",
+          help = "Process only the last COUNT puzzles")]
+    last: Option<usize>,
 }
 
 enum PuzzleMessageKind {
@@ -101,10 +104,10 @@ impl fmt::Display for PuzzleMessageKind {
 }
 
 impl PuzzleQueue {
-    fn new(jobs: VecDeque<String>) -> PuzzleQueue {
+    fn new(jobs: VecDeque<String>, first_puzzle_num: usize) -> PuzzleQueue {
         PuzzleQueue {
             data: Mutex::new(PuzzleQueueData {
-                next_puzzle_num: 0,
+                next_puzzle_num: first_puzzle_num,
                 jobs,
             })
         }
@@ -326,14 +329,23 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     };
 
-    let Ok(puzzles) = load_puzzles(cli.puzzles)
+    let Ok(mut puzzles) = load_puzzles(cli.puzzles)
     else {
         return ExitCode::FAILURE;
     };
 
+    let mut first_puzzle_num = 0;
+
+    if let Some(last) = cli.last {
+        if let Some(to_remove) = puzzles.len().checked_sub(last) {
+            puzzles.drain(0..to_remove);
+            first_puzzle_num = to_remove;
+        }
+    }
+
     let n_puzzles = puzzles.len();
 
-    let puzzles = Arc::new(PuzzleQueue::new(puzzles));
+    let puzzles = Arc::new(PuzzleQueue::new(puzzles, first_puzzle_num));
 
     let (tx, rx) = mpsc::channel();
     let n_threads = Into::<usize>::into(
