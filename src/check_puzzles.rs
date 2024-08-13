@@ -36,6 +36,17 @@ use grid_solver::GridSolver;
 use std::io::BufRead;
 use grid::Grid;
 use std::collections::{HashMap, VecDeque, hash_map};
+use clap::Parser;
+use std::ffi::OsString;
+
+#[derive(Parser)]
+#[command(name = "check-puzzles")]
+struct Cli {
+    #[arg(short, long, value_name = "FILE")]
+    puzzles: Option<OsString>,
+    #[arg(short, long, value_name = "FILE")]
+    dictionary: Option<OsString>,
+}
 
 enum PuzzleMessageKind {
     GridParseError(grid::GridParseError),
@@ -120,26 +131,27 @@ fn minimum_swaps(grid: &Grid) -> Option<usize> {
 }
 
 
-fn load_dictionary() -> Result<Arc<Dictionary>, ()> {
-    let filename = "data/dictionary.bin";
+fn load_dictionary(filename: Option<OsString>) -> Result<Arc<Dictionary>, ()> {
+    let filename = filename.unwrap_or("data/dictionary.bin".into());
 
-    match std::fs::read(filename) {
+    match std::fs::read(&filename) {
         Err(e) => {
-            eprintln!("{}: {}", filename, e);
+            eprintln!("{}: {}", filename.to_string_lossy(), e);
             Err(())
         },
         Ok(d) => Ok(Arc::new(Dictionary::new(d.into_boxed_slice()))),
     }
 }
 
-fn load_puzzles() -> Result<VecDeque<String>, ()> {
-    let filename = "puzzles.txt";
+fn load_puzzles(filename: Option<OsString>) -> Result<VecDeque<String>, ()> {
+    let filename = filename.unwrap_or("puzzles.txt".into());
+
     let mut puzzles = VecDeque::new();
 
-    let f = match std::fs::File::open(filename) {
+    let f = match std::fs::File::open(&filename) {
         Ok(f) => f,
         Err(e) => {
-            eprintln!("{}: {}", filename, e);
+            eprintln!("{}: {}", filename.to_string_lossy(), e);
             return Err(());
         },
     };
@@ -148,7 +160,7 @@ fn load_puzzles() -> Result<VecDeque<String>, ()> {
         let line = match line {
             Ok(line) => line,
             Err(e) => {
-                eprintln!("{}: {}", filename, e);
+                eprintln!("{}: {}", filename.to_string_lossy(), e);
                 return Err(());
             },
         };
@@ -157,7 +169,7 @@ fn load_puzzles() -> Result<VecDeque<String>, ()> {
     }
 
     if puzzles.is_empty() {
-        eprintln!("{}: empty file", filename);
+        eprintln!("{}: empty file", filename.to_string_lossy());
         return Err(());
     }
 
@@ -286,12 +298,14 @@ fn check_puzzles(
 }
 
 fn main() -> ExitCode {
-    let Ok(dictionary) = load_dictionary()
+    let cli = Cli::parse();
+
+    let Ok(dictionary) = load_dictionary(cli.dictionary)
     else {
         return ExitCode::FAILURE;
     };
 
-    let Ok(puzzles) = load_puzzles()
+    let Ok(puzzles) = load_puzzles(cli.puzzles)
     else {
         return ExitCode::FAILURE;
     };
