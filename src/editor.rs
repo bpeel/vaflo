@@ -433,6 +433,8 @@ impl Editor {
     }
 
     fn draw_words(&self, x: i32, y: i32) {
+        let wrong_letter_color = ncurses::COLOR_PAIR(WRONG_LETTER_COLOR);
+
         ncurses::mvaddstr(y, x, "Words:");
 
         for (i, word) in self.words.iter().enumerate() {
@@ -458,12 +460,21 @@ impl Editor {
             for (word, count, last_use)
                 in self.word_counter.counts(&word.text)
             {
-                ncurses::addstr(&format!(
-                    " {}({},#{})",
-                    word,
-                    count,
-                    last_use + 1,
-                ));
+                ncurses::addstr(&format!(" {}({},", word, count));
+
+                let too_new = self.current_puzzle - last_use < 30;
+
+                if too_new {
+                    ncurses::attron(wrong_letter_color);
+                }
+
+                ncurses::addstr(&format!("#{}", last_use + 1));
+
+                if too_new {
+                    ncurses::attroff(wrong_letter_color);
+                }
+
+                ncurses::addch(')' as u32);
             }
         }
     }

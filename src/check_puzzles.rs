@@ -37,6 +37,22 @@ use grid_solver::GridSolver;
 use std::io::BufRead;
 use grid::Grid;
 use std::collections::{HashMap, VecDeque, hash_map};
+use clap::Parser;
+use std::ffi::OsString;
+
+#[derive(Parser)]
+#[command(name = "check-puzzles")]
+struct Cli {
+    #[arg(short, long, value_name = "FILE")]
+    puzzles: Option<OsString>,
+    #[arg(short, long, value_name = "FILE")]
+    dictionary: Option<OsString>,
+    #[arg(short, long, help = "Show a message for OK puzzles too")]
+    ok: bool,
+    #[arg(short, long, value_name = "COUNT",
+          help = "Process only the last COUNT puzzles")]
+    last: Option<usize>,
+}
 
 enum PuzzleMessageKind {
     GridParseError(grid::GridParseError),
@@ -46,6 +62,7 @@ enum PuzzleMessageKind {
     MinimumSwaps(usize),
     BadWord(String),
     DuplicateWord(String),
+    Ok,
 }
 
 struct PuzzleMessage {
@@ -65,6 +82,7 @@ struct PuzzleQueueData {
 impl fmt::Display for PuzzleMessageKind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            PuzzleMessageKind::Ok => write!(f, "ok"),
             PuzzleMessageKind::GridParseError(e) => write!(f, "{}", e),
             PuzzleMessageKind::LetterGridParseError(e) => write!(f, "{}", e),
             PuzzleMessageKind::SolutionCount(count) => {
@@ -87,10 +105,10 @@ impl fmt::Display for PuzzleMessageKind {
 }
 
 impl PuzzleQueue {
-    fn new(jobs: VecDeque<String>) -> PuzzleQueue {
+    fn new(jobs: VecDeque<String>, first_puzzle_num: usize) -> PuzzleQueue {
         PuzzleQueue {
             data: Mutex::new(PuzzleQueueData {
-                next_puzzle_num: 0,
+                next_puzzle_num: first_puzzle_num,
                 jobs,
             })
         }
@@ -121,26 +139,27 @@ fn minimum_swaps(grid: &Grid) -> Option<usize> {
 }
 
 
-fn load_dictionary() -> Result<Arc<Dictionary>, ()> {
-    let filename = "data/dictionary.bin";
+fn load_dictionary(filename: Option<OsString>) -> Result<Arc<Dictionary>, ()> {
+    let filename = filename.unwrap_or("data/dictionary.bin".into());
 
-    match std::fs::read(filename) {
+    match std::fs::read(&filename) {
         Err(e) => {
-            eprintln!("{}: {}", filename, e);
+            eprintln!("{}: {}", filename.to_string_lossy(), e);
             Err(())
         },
         Ok(d) => Ok(Arc::new(Dictionary::new(d.into_boxed_slice()))),
     }
 }
 
-fn load_puzzles() -> Result<VecDeque<String>, ()> {
-    let filename = "puzzles.txt";
+fn load_puzzles(filename: Option<OsString>) -> Result<VecDeque<String>, ()> {
+    let filename = filename.unwrap_or("puzzles.txt".into());
+
     let mut puzzles = VecDeque::new();
 
-    let f = match std::fs::File::open(filename) {
+    let f = match std::fs::File::open(&filename) {
         Ok(f) => f,
         Err(e) => {
-            eprintln!("{}: {}", filename, e);
+            eprintln!("{}: {}", filename.to_string_lossy(), e);
             return Err(());
         },
     };
@@ -149,7 +168,7 @@ fn load_puzzles() -> Result<VecDeque<String>, ()> {
         let line = match line {
             Ok(line) => line,
             Err(e) => {
-                eprintln!("{}: {}", filename, e);
+                eprintln!("{}: {}", filename.to_string_lossy(), e);
                 return Err(());
             },
         };
@@ -158,7 +177,7 @@ fn load_puzzles() -> Result<VecDeque<String>, ()> {
     }
 
     if puzzles.is_empty() {
-        eprintln!("{}: empty file", filename);
+        eprintln!("{}: empty file", filename.to_string_lossy());
         return Err(());
     }
 
@@ -231,6 +250,8 @@ fn check_puzzles(
     tx: mpsc::Sender<PuzzleMessage>,
 ) -> Result<(), mpsc::SendError<PuzzleMessage>> {
     while let Some((puzzle_num, puzzle_string)) = puzzles.next() {
+        let mut ok = true;
+
         let grid = match puzzle_string.parse::<Grid>() {
             Ok(grid) => grid,
             Err(e) => {
@@ -253,6 +274,8 @@ fn check_puzzles(
                         puzzle_num,
                         kind: PuzzleMessageKind::SolutionCount(solution_count),
                     })?;
+
+                    ok = false;
                 }
             },
             Err(e) => {
@@ -260,6 +283,8 @@ fn check_puzzles(
                     puzzle_num,
                     kind: PuzzleMessageKind::LetterGridParseError(e),
                 })?;
+
+                ok = false;
             },
         }
 
@@ -272,6 +297,8 @@ fn check_puzzles(
                         puzzle_num,
                         kind: PuzzleMessageKind::MinimumSwaps(swaps),
                     })?;
+
+                    ok = false;
                 }
             },
             None => {
@@ -279,7 +306,16 @@ fn check_puzzles(
                     puzzle_num,
                     kind: PuzzleMessageKind::NoSwapSolutionFound,
                 })?;
+
+                ok = false;
             },
+        }
+
+        if ok {
+            tx.send(PuzzleMessage {
+                puzzle_num,
+                kind: PuzzleMessageKind::Ok,
+            })?;
         }
     }
 
@@ -287,19 +323,30 @@ fn check_puzzles(
 }
 
 fn main() -> ExitCode {
-    let Ok(dictionary) = load_dictionary()
+    let cli = Cli::parse();
+
+    let Ok(dictionary) = load_dictionary(cli.dictionary)
     else {
         return ExitCode::FAILURE;
     };
 
-    let Ok(puzzles) = load_puzzles()
+    let Ok(mut puzzles) = load_puzzles(cli.puzzles)
     else {
         return ExitCode::FAILURE;
     };
+
+    let mut first_puzzle_num = 0;
+
+    if let Some(last) = cli.last {
+        if let Some(to_remove) = puzzles.len().checked_sub(last) {
+            puzzles.drain(0..to_remove);
+            first_puzzle_num = to_remove;
+        }
+    }
 
     let n_puzzles = puzzles.len();
 
-    let puzzles = Arc::new(PuzzleQueue::new(puzzles));
+    let puzzles = Arc::new(PuzzleQueue::new(puzzles, first_puzzle_num));
 
     let (tx, rx) = mpsc::channel();
     let n_threads = Into::<usize>::into(
@@ -319,9 +366,22 @@ fn main() -> ExitCode {
     let mut result = ExitCode::SUCCESS;
 
     for message in rx {
-        result = ExitCode::FAILURE;
+        match message.kind {
+            PuzzleMessageKind::Ok => {
+                if cli.ok {
+                    println!(
+                        "puzzle {}: {}",
+                        message.puzzle_num + 1,
+                        message.kind,
+                    );
+                }
+            },
+            kind => {
+                result = ExitCode::FAILURE;
 
-        eprintln!("puzzle {}: {}", message.puzzle_num + 1, message.kind);
+                eprintln!("puzzle {}: {}", message.puzzle_num + 1, kind);
+            },
+        }
     }
 
     for handle in handles {
