@@ -800,6 +800,11 @@ impl Editor {
             letters[WORD_LENGTH * (WORD_LENGTH - 1) + i] = 'Y';
         }
 
+        self.cursor_x = 0;
+        self.cursor_y = 0;
+        self.current_grid = GridChoice::Solution;
+        self.edit_direction = EditDirection::Right;
+
         self.puzzles.push(grid);
         self.set_current_puzzle(self.puzzles.len() - 1);
     }
