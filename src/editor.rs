@@ -612,16 +612,20 @@ impl Editor {
         match self.edit_direction {
             EditDirection::Down => {
                 if self.cursor_y + 1 < WORD_LENGTH as i32 {
-                    self.cursor_y += 1;
-                    if grid::is_gap_space(self.cursor_x, self.cursor_y) {
+                    if grid::is_gap_space(self.cursor_x, self.cursor_y + 1) {
+                        self.edit_direction = EditDirection::Right;
+                        self.cursor_x += 1;
+                    } else {
                         self.cursor_y += 1;
                     }
                 }
             },
             EditDirection::Right => {
                 if self.cursor_x + 1 < WORD_LENGTH as i32 {
-                    self.cursor_x += 1;
-                    if grid::is_gap_space(self.cursor_x, self.cursor_y) {
+                    if grid::is_gap_space(self.cursor_x + 1, self.cursor_y) {
+                        self.edit_direction = EditDirection::Down;
+                        self.cursor_y += 1;
+                    } else {
                         self.cursor_x += 1;
                     }
                 }
