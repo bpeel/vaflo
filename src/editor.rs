@@ -102,6 +102,8 @@ struct Editor {
     shortest_swap_solution: Option<usize>,
     word_counter: WordCounter,
     search_results: SearchResults,
+    // Number of puzzles when the data was loaded
+    initial_n_puzzles: usize,
 }
 
 enum SolutionEventKind {
@@ -278,6 +280,8 @@ impl Editor {
     ) -> Editor {
         assert!(!puzzles.is_empty());
 
+        let initial_n_puzzles = puzzles.len();
+
         let mut editor = Editor {
             dictionary,
             solver_state,
@@ -298,6 +302,7 @@ impl Editor {
             shortest_swap_solution: None,
             word_counter: WordCounter::new(),
             search_results: SearchResults::None,
+            initial_n_puzzles,
         };
 
         editor.update_words();
@@ -336,6 +341,13 @@ impl Editor {
             self.puzzles.len(),
             date_string_for_puzzle(self.current_puzzle),
         ));
+
+        if self.current_puzzle >= self.initial_n_puzzles {
+            ncurses::addstr(&format!(
+                " +{}",
+                self.current_puzzle - self.initial_n_puzzles + 1,
+            ));
+        }
 
         self.draw_words(right_side, self.grid_y + 2);
         self.draw_search_results(
