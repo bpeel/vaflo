@@ -27,50 +27,33 @@ impl Dictionary {
 
     pub fn contains<I: Iterator<Item = char>>(&self, word: I) -> bool {
         // Skip the root node
-        let Some(Node { remainder, child_offset, .. }) =
-            Node::extract(&self.data)
+        let Some(mut node) = Node::extract(&self.data).and_then(|node| {
+            node.first_child()
+        })
         else {
             return false;
         };
 
-        if child_offset == 0 {
-            return false;
-        }
-
-        let mut data = &remainder[child_offset..];
         let mut word = word.flat_map(|c| c.to_lowercase());
         let mut next_letter = word.next();
 
         loop {
-            let Some(node) = Node::extract(data)
-            else {
-                return false;
-            };
-
             if node.letter == next_letter.unwrap_or('\0') {
                 if next_letter.is_none() {
                     return true;
                 }
 
-                if node.child_offset == 0 {
-                    return false;
-                }
-
                 next_letter = word.next();
 
-                data = match node.remainder.get(node.child_offset..) {
-                    Some(d) => d,
+                match node.first_child() {
+                    Some(n) => node = n,
                     None => return false,
-                };
-            } else {
-                if node.sibling_offset == 0 {
-                    return false;
                 }
-
-                data = match node.remainder.get(node.sibling_offset..) {
-                    Some(d) => d,
+            } else {
+                match node.next_sibling() {
+                    Some(n) => node = n,
                     None => return false,
-                };
+                }
             }
         }
     }
@@ -115,6 +98,22 @@ impl<'a> Node<'a> {
             letter: letter.chars().next().unwrap(),
             remainder: data,
         })
+    }
+
+    fn first_child(&self) -> Option<Node<'a>> {
+        if self.child_offset == 0 {
+            None
+        } else {
+            self.remainder.get(self.child_offset..).and_then(Node::extract)
+        }
+    }
+
+    fn next_sibling(&self) -> Option<Node<'a>> {
+        if self.sibling_offset == 0 {
+            None
+        } else {
+            self.remainder.get(self.sibling_offset..).and_then(Node::extract)
+        }
     }
 }
 
