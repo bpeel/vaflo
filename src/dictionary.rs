@@ -26,10 +26,7 @@ impl Dictionary {
     }
 
     pub fn contains<I: Iterator<Item = char>>(&self, word: I) -> bool {
-        // Skip the root node
-        let Some(mut node) = Node::extract(&self.data).and_then(|node| {
-            node.first_child()
-        })
+        let Some(mut node) = self.first_node()
         else {
             return false;
         };
@@ -56,6 +53,13 @@ impl Dictionary {
                 }
             }
         }
+    }
+
+    fn first_node(&self) -> Option<Node> {
+        // Skip the root node
+        Node::extract(&self.data).and_then(|node| {
+            node.first_child()
+        })
     }
 }
 
