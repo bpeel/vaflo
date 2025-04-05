@@ -35,7 +35,7 @@ impl Dictionary {
         let mut next_letter = word.next();
 
         loop {
-            if node.letter == next_letter.unwrap_or('\0') {
+            if node.letter() == next_letter.unwrap_or('\0') {
                 if next_letter.is_none() {
                     return true;
                 }
@@ -55,7 +55,7 @@ impl Dictionary {
         }
     }
 
-    fn first_node(&self) -> Option<Node> {
+    pub fn first_node(&self) -> Option<Node> {
         // Skip the root node
         Node::extract(&self.data).and_then(|node| {
             node.first_child()
@@ -81,7 +81,8 @@ fn read_offset(data: &[u8]) -> Option<(&[u8], usize)> {
     None
 }
 
-struct Node<'a> {
+#[derive(Clone)]
+pub struct Node<'a> {
     sibling_offset: usize,
     child_offset: usize,
     letter: char,
@@ -104,7 +105,7 @@ impl<'a> Node<'a> {
         })
     }
 
-    fn first_child(&self) -> Option<Node<'a>> {
+    pub fn first_child(&self) -> Option<Node<'a>> {
         if self.child_offset == 0 {
             None
         } else {
@@ -112,12 +113,16 @@ impl<'a> Node<'a> {
         }
     }
 
-    fn next_sibling(&self) -> Option<Node<'a>> {
+    pub fn next_sibling(&self) -> Option<Node<'a>> {
         if self.sibling_offset == 0 {
             None
         } else {
             self.remainder.get(self.sibling_offset..).and_then(Node::extract)
         }
+    }
+
+    pub fn letter(&self) -> char {
+        self.letter
     }
 }
 
