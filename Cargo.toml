@@ -43,6 +43,10 @@ path = "src/make_dictionary.rs"
 name = "make-shavian-dictionary"
 path = "src/make_shavian_dictionary.rs"
 
+[[bin]]
+name = "find-all"
+path = "src/find_all.rs"
+
 [target."cfg(target_arch = \"wasm32\")".dependencies.wasm_bindgen]
 package = "wasm-bindgen"
 version = "0.2.87"
