@@ -28,6 +28,7 @@ mod stem_word;
 mod solver_state;
 mod crossword_solver;
 mod word_search;
+mod generate_puzzle;
 
 use std::process::ExitCode;
 use letter_grid::LetterGrid;
@@ -102,6 +103,7 @@ struct Editor {
     shortest_swap_solution: Option<usize>,
     word_counter: WordCounter,
     search_results: SearchResults,
+    letter_added: bool,
     // Number of puzzles when the data was loaded
     initial_n_puzzles: usize,
 }
@@ -302,6 +304,7 @@ impl Editor {
             shortest_swap_solution: None,
             word_counter: WordCounter::new(),
             search_results: SearchResults::None,
+            letter_added: true,
             initial_n_puzzles,
         };
 
@@ -449,7 +452,7 @@ impl Editor {
             {
                 ncurses::addstr(&format!(" {}({},", word, count));
 
-                let too_new = self.current_puzzle - last_use < 30;
+                let too_new = last_use + 30 > self.current_puzzle;
 
                 if too_new {
                     ncurses::attron(wrong_letter_color);
@@ -617,6 +620,7 @@ impl Editor {
         };
 
         grid.solution.letters[position] = ch;
+        self.letter_added = true;
         grid.update_square_states();
         self.update_words();
         self.send_grid();
@@ -695,6 +699,7 @@ impl Editor {
                 '$' => self.toggle_edit_direction(),
                 ' ' => self.handle_mark(),
                 '\u{0003}' => self.should_quit = true, // Ctrl+C
+                '\u{0007}' => self.generate_puzzle(), // Ctrl+G
                 '\u{0010}' => self.pattern_search(), // Ctrl+P
                 '\u{0012}' => self.shuffle_puzzle(), // Ctrl+R
                 '\u{0013}' => self.handle_swap(), // Ctrl+S
@@ -783,6 +788,17 @@ impl Editor {
         if puzzle_num != self.current_puzzle {
             assert!(puzzle_num < self.puzzles.len());
             self.current_puzzle = puzzle_num;
+
+            // Set the puzzle as modified if it’s not empty
+            self.letter_added = self.puzzles[self.current_puzzle]
+                .solution
+                .letters
+                .iter()
+                .enumerate()
+                .any(|(i, &ch)| {
+                    !grid::is_gap_position(i) && ch != '.' && ch != 'Y'
+                });
+
             self.update_words();
             self.update_word_counts();
             self.search_results = SearchResults::None;
@@ -837,6 +853,26 @@ impl Editor {
         self.search_results = SearchResults::Crosswords(crosswords);
 
         self.redraw();
+    }
+
+    fn generate_puzzle(&mut self) {
+        // Don’t do anything if the puzzle has been modified to avoid
+        // accidentally erasing it
+        if self.letter_added {
+            return;
+        }
+
+        let grid = &mut self.puzzles[self.current_puzzle];
+
+        if let Some(generated_puzzle) =
+            generate_puzzle::generate(&self.dictionary)
+        {
+            grid.solution = generated_puzzle;
+            grid.update_square_states();
+            self.update_words();
+            self.send_grid();
+            self.redraw();
+        }
     }
 
     fn pattern_search(&mut self) {

@@ -72,6 +72,7 @@ This will check that all the puzzles only have valid words, no word has been use
 | Ctrl+P      | Search for words matching the pattern under the cursor |
 | Ctrl+X      | Look for words that share a common letter at the intersection under the cursor |
 | Ctrl+J      | Shuffle the search results (jumble up) |
+| Ctrl+G      | Generate a random puzzle |
 | Page up     | Move to the previous puzzle |
 | Page down   | Move to the next puzzle |
 | Home        | Move to the first puzzle |
