@@ -28,6 +28,7 @@ mod stem_word;
 mod solver_state;
 mod crossword_solver;
 mod word_search;
+mod generate_puzzle;
 
 use std::process::ExitCode;
 use letter_grid::LetterGrid;
@@ -695,6 +696,7 @@ impl Editor {
                 '$' => self.toggle_edit_direction(),
                 ' ' => self.handle_mark(),
                 '\u{0003}' => self.should_quit = true, // Ctrl+C
+                '\u{0007}' => self.generate_puzzle(), // Ctrl+G
                 '\u{0010}' => self.pattern_search(), // Ctrl+P
                 '\u{0012}' => self.shuffle_puzzle(), // Ctrl+R
                 '\u{0013}' => self.handle_swap(), // Ctrl+S
@@ -844,6 +846,29 @@ impl Editor {
         self.search_results = SearchResults::Crosswords(crosswords);
 
         self.redraw();
+    }
+
+    fn generate_puzzle(&mut self) {
+        let grid = &mut self.puzzles[self.current_puzzle];
+
+        let is_empty = grid.solution.letters.iter().enumerate().all(|(i, &ch)| {
+            grid::is_gap_position(i) || ch == '.' || ch == 'Y'
+        });
+
+        // Don’t do anything if the puzzle isn’t empty
+        if !is_empty {
+            return;
+        }
+
+        if let Some(generated_puzzle) =
+            generate_puzzle::generate(&self.dictionary)
+        {
+            grid.solution = generated_puzzle;
+            grid.update_square_states();
+            self.update_words();
+            self.send_grid();
+            self.redraw();
+        }
     }
 
     fn pattern_search(&mut self) {

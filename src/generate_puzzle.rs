@@ -118,13 +118,15 @@ pub fn generate(dictionary: &Dictionary) -> Option<SolutionGrid> {
                 let x = pos % WORD_LENGTH;
                 let y = pos / WORD_LENGTH;
 
-                if y & 1 == 0 {
+                let ch = if y & 1 == 0 {
                     horizontal_words[y / 2 * WORD_LENGTH + x].letter()
                 } else if x & 1 == 0 {
                     vertical_words[x / 2 * WORD_LENGTH + y].letter()
                 } else {
                     ' '
-                }.upper()
+                };
+
+                ch.to_uppercase().next().unwrap_or(ch)
             });
 
             return Some(SolutionGrid { letters });
