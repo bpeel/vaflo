@@ -206,7 +206,7 @@ mod test {
 
         // There are two possible solutions and it will randomly pick
         // one of them
-        if grid.letters[1] == 'f' {
+        if grid.letters[1] == 'F' {
             assert_eq!(
                 &grid.letters.iter().collect::<String>(),
                 "AFKPU\
