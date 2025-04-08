@@ -449,7 +449,7 @@ impl Editor {
             {
                 ncurses::addstr(&format!(" {}({},", word, count));
 
-                let too_new = self.current_puzzle - last_use < 30;
+                let too_new = last_use + 30 > self.current_puzzle;
 
                 if too_new {
                     ncurses::attron(wrong_letter_color);
