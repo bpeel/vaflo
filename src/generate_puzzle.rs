@@ -14,8 +14,21 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use super::dictionary::{self, Dictionary};
+use super::dictionary::{Dictionary, Node};
 use super::grid::{WORD_LENGTH, N_WORDS_ON_AXIS, SolutionGrid};
+use rand::prelude::*;
+
+fn list_siblings<'a>(first_node: Node<'a>) -> Vec<Node<'a>> {
+    let mut siblings = vec![first_node];
+
+    while let Some(next_sibling) = siblings.last().unwrap().next_sibling() {
+        siblings.push(next_sibling);
+    }
+
+    siblings.shuffle(&mut rand::thread_rng());
+
+    siblings
+}
 
 fn vertical_word_pos(pos: usize) -> Option<(usize, usize)> {
     // The position within the group, where a group is a horizontal
@@ -39,9 +52,9 @@ fn vertical_word_pos(pos: usize) -> Option<(usize, usize)> {
 }
 
 fn find_sibling<'a>(
-    mut n: Option<dictionary::Node<'a>>,
+    mut n: Option<Node<'a>>,
     letter: char,
-) -> Option<dictionary::Node<'a>> {
+) -> Option<Node<'a>> {
     while let Some(sibling) = n {
         if sibling.letter() == letter {
             return Some(sibling);
@@ -64,17 +77,17 @@ pub fn generate(dictionary: &Dictionary) -> Option<SolutionGrid> {
             first_node.clone()
         });
     let mut vertical_words = horizontal_words.clone();
-    let mut stack = vec![Some(first_node.clone())];
+    let mut stack = vec![list_siblings(first_node.clone())];
 
-    while let Some(node) = stack.pop() {
-        let Some(node) = node
+    while let Some(mut siblings) = stack.pop() {
+        let Some(node) = siblings.pop()
         else {
             continue;
         };
 
         let pos = stack.len();
 
-        stack.push(node.next_sibling());
+        stack.push(siblings);
 
         // The position within the group, where a group is a
         // horizontal word followed by a row of letters used only in
@@ -135,15 +148,20 @@ pub fn generate(dictionary: &Dictionary) -> Option<SolutionGrid> {
             let next_group_pos = next_pos % (WORD_LENGTH + N_WORDS_ON_AXIS);
 
             if next_group_pos == 0 {
-                stack.push(Some(first_node.clone()));
-            } else if next_group_pos < WORD_LENGTH {
-                stack.push(node.first_child());
+                stack.push(list_siblings(first_node.clone()));
             } else {
-                let previous_letter = &vertical_words[
-                    next_pos / (WORD_LENGTH + N_WORDS_ON_AXIS) * 2 +
-                        (next_group_pos - WORD_LENGTH) * WORD_LENGTH
-                ];
-                stack.push(previous_letter.first_child());
+                let parent = if next_group_pos < WORD_LENGTH {
+                    &node
+                } else {
+                    &vertical_words[
+                        next_pos / (WORD_LENGTH + N_WORDS_ON_AXIS) * 2 +
+                            (next_group_pos - WORD_LENGTH) * WORD_LENGTH
+                    ]
+                };
+
+                if let Some(first_child) = parent.first_child() {
+                    stack.push(list_siblings(first_child));
+                }
             }
         }
     }
@@ -186,13 +204,26 @@ mod test {
     fn test_generate() {
         let grid = generate(&make_test_dictionary()).unwrap();
 
-        assert_eq!(
-            &grid.letters.iter().collect::<String>(),
-            "ABCDE\
-             F H J\
-             KLMNO\
-             P R T\
-             UVWXY",
-        );
+        // There are two possible solutions and it will randomly pick
+        // one of them
+        if grid.letters[1] == 'f' {
+            assert_eq!(
+                &grid.letters.iter().collect::<String>(),
+                "AFKPU\
+                 B L V\
+                 CHMRW\
+                 D N X\
+                 EJOTY",
+            );
+        } else {
+            assert_eq!(
+                &grid.letters.iter().collect::<String>(),
+                "ABCDE\
+                 F H J\
+                 KLMNO\
+                 P R T\
+                 UVWXY",
+            );
+        }
     }
 }
