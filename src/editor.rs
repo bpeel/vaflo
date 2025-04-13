@@ -272,6 +272,10 @@ fn date_string_for_puzzle(puzzle_num: usize) -> String {
     }
 }
 
+fn is_wildcard(ch: char) -> bool {
+    ch == '.' || ch == 'Y'
+}
+
 impl Editor {
     fn new(
         puzzles: Vec<Grid>,
@@ -796,7 +800,7 @@ impl Editor {
                 .iter()
                 .enumerate()
                 .any(|(i, &ch)| {
-                    !grid::is_gap_position(i) && ch != '.' && ch != 'Y'
+                    !grid::is_gap_position(i) && !is_wildcard(ch)
                 });
 
             self.update_words();
