@@ -106,7 +106,7 @@ struct Editor {
     shortest_swap_solution: Option<usize>,
     word_counter: WordCounter,
     search_results: SearchResults,
-    letter_added: bool,
+    added_letters: u32,
     // Number of puzzles when the data was loaded
     initial_n_puzzles: usize,
 }
@@ -290,6 +290,10 @@ fn remap_shavian_keyboard(ch: char) -> Option<char> {
     MAP.binary_search_by_key(&ch, |pair| pair.0).ok().map(|pos| MAP[pos].1)
 }
 
+fn is_wildcard(ch: char) -> bool {
+    ch == '.'
+}
+
 impl Editor {
     fn new(
         puzzles: Vec<Grid>,
@@ -324,7 +328,7 @@ impl Editor {
             shortest_swap_solution: None,
             word_counter: WordCounter::new(),
             search_results: SearchResults::None,
-            letter_added: true,
+            added_letters: u32::MAX,
             initial_n_puzzles,
         };
 
@@ -645,7 +649,11 @@ impl Editor {
         };
 
         grid.solution.letters[position] = ch;
-        self.letter_added = true;
+        if is_wildcard(ch) {
+            self.added_letters &= !(1 << position);
+        } else {
+            self.added_letters |= 1 << position;
+        }
         grid.update_square_states();
         self.update_words();
         self.send_grid();
@@ -817,15 +825,18 @@ impl Editor {
             assert!(puzzle_num < self.puzzles.len());
             self.current_puzzle = puzzle_num;
 
-            // Set the puzzle as modified if it’s not empty
-            self.letter_added = self.puzzles[self.current_puzzle]
+            // Set the non-empty letters as modified
+            self.added_letters = self.puzzles[self.current_puzzle]
                 .solution
                 .letters
                 .iter()
                 .enumerate()
-                .any(|(i, &ch)| {
-                    !grid::is_gap_position(i) && ch != '.'
-                });
+                .map(|(i, &ch)| {
+                    let modified = !grid::is_gap_position(i) &&
+                        !is_wildcard(ch);
+                    (modified as u32) << i
+                })
+                .fold(0, |a, b| a | b);
 
             self.update_words();
             self.update_word_counts();
@@ -884,16 +895,21 @@ impl Editor {
     }
 
     fn generate_puzzle(&mut self) {
-        // Don’t do anything if the puzzle has been modified to avoid
-        // accidentally erasing it
-        if self.letter_added {
-            return;
-        }
-
         let grid = &mut self.puzzles[self.current_puzzle];
 
+        let fixed_letters = (0..(WORD_LENGTH * WORD_LENGTH))
+            .filter(|&pos| !grid::is_gap_position(pos))
+            .map(|pos| {
+                if self.added_letters & (1 << pos) == 0 {
+                    None
+                } else {
+                    grid.solution.letters[pos].to_lowercase().next()
+                }
+            })
+            .collect::<Vec<_>>();
+
         if let Some(generated_puzzle) =
-            generate_puzzle::generate(&self.dictionary)
+            generate_puzzle::generate(&self.dictionary, &fixed_letters)
         {
             grid.solution = generated_puzzle;
             grid.update_square_states();
