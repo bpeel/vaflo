@@ -872,7 +872,7 @@ impl Editor {
         let grid = &mut self.puzzles[self.current_puzzle];
 
         if let Some(generated_puzzle) =
-            generate_puzzle::generate(&self.dictionary)
+            generate_puzzle::generate(&self.dictionary, &[])
         {
             grid.solution = generated_puzzle;
             grid.update_square_states();
