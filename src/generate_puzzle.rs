@@ -66,7 +66,10 @@ fn find_sibling<'a>(
     None
 }
 
-pub fn generate(dictionary: &Dictionary) -> Option<SolutionGrid> {
+pub fn generate(
+    dictionary: &Dictionary,
+    fixed_letters: &[Option<char>],
+) -> Option<SolutionGrid> {
     let Some(first_node) = dictionary.first_node()
     else {
         return None;
@@ -88,6 +91,12 @@ pub fn generate(dictionary: &Dictionary) -> Option<SolutionGrid> {
         let pos = stack.len();
 
         stack.push(siblings);
+
+        if let Some(fixed_letter) = fixed_letters.get(pos).and_then(|&l| l) {
+            if fixed_letter != node.letter() {
+                continue;
+            }
+        }
 
         // The position within the group, where a group is a
         // horizontal word followed by a row of letters used only in
@@ -202,11 +211,11 @@ mod test {
 
     #[test]
     fn test_generate() {
-        let grid = generate(&make_test_dictionary()).unwrap();
+        let grid = generate(&make_test_dictionary(), &[]).unwrap();
 
         // There are two possible solutions and it will randomly pick
         // one of them
-        if grid.letters[1] == 'f' {
+        if grid.letters[1] == 'F' {
             assert_eq!(
                 &grid.letters.iter().collect::<String>(),
                 "AFKPU\
