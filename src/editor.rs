@@ -109,6 +109,7 @@ struct Editor {
     added_letters: u32,
     // Number of puzzles when the data was loaded
     initial_n_puzzles: usize,
+    last_key_was_letter: bool,
 }
 
 enum SolutionEventKind {
@@ -330,6 +331,7 @@ impl Editor {
             search_results: SearchResults::None,
             added_letters: u32::MAX,
             initial_n_puzzles,
+            last_key_was_letter: false,
         };
 
         editor.update_words();
@@ -667,6 +669,11 @@ impl Editor {
                     } else {
                         self.cursor_y += 1;
                     }
+                } else if self.cursor_x + 1 < WORD_LENGTH as i32 &&
+                    !self.last_key_was_letter
+                {
+                    self.edit_direction = EditDirection::Right;
+                    self.cursor_x += 1;
                 }
             },
             EditDirection::Right => {
@@ -677,6 +684,11 @@ impl Editor {
                     } else {
                         self.cursor_x += 1;
                     }
+                } else if self.cursor_y + 1 < WORD_LENGTH as i32 &&
+                    !self.last_key_was_letter
+                {
+                    self.edit_direction = EditDirection::Down;
+                    self.cursor_y += 1;
                 }
             },
         }
@@ -685,6 +697,8 @@ impl Editor {
     }
 
     fn handle_key_code(&mut self, key: i32) {
+        self.last_key_was_letter = false;
+
         match key {
             ncurses::KEY_UP => self.move_cursor(0, -1),
             ncurses::KEY_DOWN => self.move_cursor(0, 1),
@@ -725,29 +739,39 @@ impl Editor {
         }
     }
 
+    fn handle_char_shortcut(&mut self, ch: char) -> bool {
+        match ch {
+            '\t' => self.toggle_grid(),
+            '$' => self.toggle_edit_direction(),
+            ' ' => self.handle_mark(),
+            '\u{0003}' => self.should_quit = true, // Ctrl+C
+            '\u{0007}' => self.generate_puzzle(), // Ctrl+G
+            '\u{0010}' => self.pattern_search(), // Ctrl+P
+            '\u{0012}' => self.shuffle_puzzle(), // Ctrl+R
+            '\u{0013}' => self.handle_swap(), // Ctrl+S
+            '\u{000a}' => self.shuffle_search_results(), // Ctrl+J
+            '\u{000e}' => self.new_puzzle(), // Ctrl+N
+            '\u{0018}' => self.find_crosswords(), // Ctrl+X
+            _ => return false,
+        }
+
+        return true;
+    }
+
     fn handle_char(&mut self, ch: ncurses::winttype) {
         if let Some(ch) = char::from_u32(ch as u32) {
-            match ch {
-                '\t' => self.toggle_grid(),
-                '$' => self.toggle_edit_direction(),
-                ' ' => self.handle_mark(),
-                '\u{0003}' => self.should_quit = true, // Ctrl+C
-                '\u{0007}' => self.generate_puzzle(), // Ctrl+G
-                '\u{0010}' => self.pattern_search(), // Ctrl+P
-                '\u{0012}' => self.shuffle_puzzle(), // Ctrl+R
-                '\u{0013}' => self.handle_swap(), // Ctrl+S
-                '\u{000a}' => self.shuffle_search_results(), // Ctrl+J
-                '\u{000e}' => self.new_puzzle(), // Ctrl+N
-                '\u{0018}' => self.find_crosswords(), // Ctrl+X
-                ch => {
-                    if let Some(ch) = remap_shavian_keyboard(ch) {
-                        self.add_character(ch);
-                    } else if ch.is_alphabetic() || ch == '.' {
-                        for ch in ch.to_uppercase() {
-                            self.add_character(ch);
-                        }
-                    }
-                },
+            if self.handle_char_shortcut(ch) {
+                self.last_key_was_letter = false;
+            } else if let Some(ch) = remap_shavian_keyboard(ch) {
+                self.add_character(ch);
+                self.last_key_was_letter = true;
+            } else if ch.is_alphabetic() || ch == '.' {
+                for ch in ch.to_uppercase() {
+                    self.add_character(ch);
+                }
+                self.last_key_was_letter = true;
+            } else {
+                self.last_key_was_letter = false;
             }
         }
     }
