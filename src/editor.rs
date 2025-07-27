@@ -716,7 +716,10 @@ impl Editor {
             '\u{0007}' => self.generate_puzzle(), // Ctrl+G
             '\u{0010}' => self.pattern_search(), // Ctrl+P
             '\u{0012}' => self.shuffle_puzzle(), // Ctrl+R
-            '\u{0013}' => self.handle_swap(), // Ctrl+S
+            '\u{0013}' | 's'
+                if matches!(self.current_grid, GridChoice::Puzzle) => {
+                    self.handle_swap();
+                },
             '\u{000a}' => self.shuffle_search_results(), // Ctrl+J
             '\u{000e}' => self.new_puzzle(), // Ctrl+N
             '\u{0018}' => self.find_crosswords(), // Ctrl+X
