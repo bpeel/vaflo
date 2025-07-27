@@ -618,13 +618,6 @@ impl Editor {
 
         let grid = &mut self.puzzles[self.current_puzzle];
 
-        let position = match self.current_grid {
-            GridChoice::Solution => position,
-            GridChoice::Puzzle => {
-                grid.puzzle.squares[position].position
-            },
-        };
-
         grid.solution.letters[position] = ch;
         if is_wildcard(ch) {
             self.added_letters &= !(1 << position);
@@ -737,7 +730,9 @@ impl Editor {
         if let Some(ch) = char::from_u32(ch as u32) {
             if self.handle_char_shortcut(ch) {
                 self.last_key_was_letter = false;
-            } else if ch.is_alphabetic() || ch == '.' {
+            } else if matches!(self.current_grid, GridChoice::Solution) &&
+                (ch.is_alphabetic() || ch == '.')
+            {
                 for ch in ch.to_uppercase() {
                     self.add_character(ch);
                 }
