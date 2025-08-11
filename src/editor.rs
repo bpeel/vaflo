@@ -29,6 +29,7 @@ mod solver_state;
 mod crossword_solver;
 mod word_search;
 mod generate_puzzle;
+mod wildcard;
 
 use std::process::ExitCode;
 use letter_grid::LetterGrid;
@@ -46,6 +47,7 @@ use grid::{Grid, SolutionGrid, PuzzleGrid, PuzzleSquareState};
 use word_counter::WordCounter;
 use solver_state::{SolverState, SolverStatePair};
 use chrono::{naive::Days, NaiveDate};
+use wildcard::is_wildcard;
 
 // Number of swaps to make when shuffling the puzzle
 const N_SHUFFLE_SWAPS: usize = 10;
@@ -271,10 +273,6 @@ fn date_string_for_puzzle(puzzle_num: usize) -> String {
         None => "?".to_string(),
         Some(puzzle_date) => puzzle_date.format("%a %Y-%m-%d").to_string(),
     }
-}
-
-fn is_wildcard(ch: char) -> bool {
-    ch == '.'
 }
 
 impl Editor {
