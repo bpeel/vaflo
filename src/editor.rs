@@ -30,6 +30,7 @@ mod crossword_solver;
 mod word_search;
 mod shavian;
 mod generate_puzzle;
+mod wildcard;
 
 use std::process::ExitCode;
 use letter_grid::LetterGrid;
@@ -48,6 +49,7 @@ use grid::{Grid, SolutionGrid, PuzzleGrid, PuzzleSquareState};
 use word_counter::WordCounter;
 use solver_state::{SolverState, SolverStatePair};
 use chrono::{naive::Days, NaiveDate};
+use wildcard::is_wildcard;
 
 // Number of swaps to make when shuffling the puzzle
 const N_SHUFFLE_SWAPS: usize = 10;
@@ -289,10 +291,6 @@ fn remap_shavian_keyboard(ch: char) -> Option<char> {
     ];
 
     MAP.binary_search_by_key(&ch, |pair| pair.0).ok().map(|pos| MAP[pos].1)
-}
-
-fn is_wildcard(ch: char) -> bool {
-    ch == '.'
 }
 
 impl Editor {

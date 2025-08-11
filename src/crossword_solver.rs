@@ -16,6 +16,7 @@
 
 use super::dictionary::{Dictionary, WordIterator};
 use super::grid::{SolutionGrid, WORD_LENGTH};
+use super::wildcard;
 use std::collections::HashMap;
 
 pub struct Crossword {
@@ -25,27 +26,27 @@ pub struct Crossword {
 }
 
 fn word_matches(
-    word_a: &str,
-    word_b: &str,
+    pattern: &str,
+    word: &str,
     cross_point: usize,
 ) -> Option<char> {
     let mut cross_letter = None;
-    let mut b_chars = word_b.chars();
+    let mut word_chars = word.chars();
 
-    for (i, ch_a) in word_a.chars().enumerate() {
-        let Some(ch_b) = b_chars.next()
+    for (i, pattern_ch) in pattern.chars().enumerate() {
+        let Some(word_ch) = word_chars.next()
         else {
             return None;
         };
 
         if i == cross_point {
-            cross_letter = Some(ch_b);
-        } else if i & 1 == 0 && ch_a != ch_b {
+            cross_letter = Some(word_ch);
+        } else if i & 1 == 0 && !wildcard::matches(pattern_ch, word_ch) {
             return None;
         }
     }
 
-    if b_chars.next().is_some() {
+    if word_chars.next().is_some() {
         return None;
     }
 
