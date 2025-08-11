@@ -15,7 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 pub fn is_wildcard(ch: char) -> bool {
-    ch == '.' || ch == 'Y'
+    ch == '.'
 }
 
 pub fn matches(pattern_ch: char, word_ch: char) -> bool {
