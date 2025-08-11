@@ -17,3 +17,11 @@
 pub fn is_wildcard(ch: char) -> bool {
     ch == '.' || ch == 'Y'
 }
+
+pub fn matches(pattern_ch: char, word_ch: char) -> bool {
+    match pattern_ch {
+        'y' => "aeioujns".contains(word_ch),
+        '.' => true,
+        pattern_ch => pattern_ch == word_ch,
+    }
+}

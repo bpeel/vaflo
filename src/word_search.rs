@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::dictionary::{Dictionary, WordIterator};
+use super::wildcard;
 
 fn pattern_matches(pattern: &str, word: &str) -> bool {
     let mut word_chars = word.chars();
@@ -25,13 +26,7 @@ fn pattern_matches(pattern: &str, word: &str) -> bool {
             return false;
         };
 
-        let matches = match pattern_ch {
-            'y' => "aeioujns".contains(word_ch),
-            '.' => true,
-            pattern_ch => pattern_ch == word_ch,
-        };
-
-        if !matches {
+        if !wildcard::matches(pattern_ch, word_ch) {
             return false;
         }
     }
