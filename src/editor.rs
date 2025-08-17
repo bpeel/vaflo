@@ -610,22 +610,7 @@ impl Editor {
         self.redraw();
     }
 
-    fn add_character(&mut self, ch: char) {
-        let position = self.cursor_x as usize
-            + self.cursor_y as usize * WORD_LENGTH;
-
-        let grid = &mut self.puzzles[self.current_puzzle];
-
-        grid.solution.letters[position] = ch;
-        if is_wildcard(ch) {
-            self.added_letters &= !(1 << position);
-        } else {
-            self.added_letters |= 1 << position;
-        }
-        grid.update_square_states();
-        self.update_words();
-        self.send_grid();
-
+    fn advance_cursor(&mut self) {
         match self.edit_direction {
             EditDirection::Down => {
                 if self.cursor_y + 1 < WORD_LENGTH as i32 {
@@ -658,6 +643,24 @@ impl Editor {
                 }
             },
         }
+    }
+
+    fn add_character(&mut self, ch: char) {
+        let position = self.cursor_x as usize
+            + self.cursor_y as usize * WORD_LENGTH;
+
+        let grid = &mut self.puzzles[self.current_puzzle];
+
+        grid.solution.letters[position] = ch;
+        if is_wildcard(ch) {
+            self.added_letters &= !(1 << position);
+        } else {
+            self.added_letters |= 1 << position;
+        }
+        grid.update_square_states();
+        self.update_words();
+        self.send_grid();
+        self.advance_cursor();
 
         self.redraw();
     }
