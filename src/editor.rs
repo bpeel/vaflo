@@ -665,6 +665,72 @@ impl Editor {
         self.redraw();
     }
 
+    fn score_state_for_find(&self, pos: usize) -> u8 {
+        let grid = &self.puzzles[self.current_puzzle];
+
+        match grid.puzzle.squares[pos].state {
+            PuzzleSquareState::Correct => 0,
+            PuzzleSquareState::WrongPosition => 1,
+            PuzzleSquareState::Wrong => 2,
+        }
+    }
+
+    fn find_letter(&self, ch: char) -> Option<usize> {
+        let mut best_letter = None;
+
+        let grid = &self.puzzles[self.current_puzzle];
+
+        for (i, square) in grid.puzzle.squares.iter().enumerate() {
+            if i == self.cursor_pos() {
+                continue;
+            }
+
+            let letter = grid.solution.letters[square.position];
+
+            if letter != ch {
+                continue;
+            }
+
+            best_letter = Some(match best_letter {
+                None => i,
+                Some(old) => {
+                    std::cmp::max_by_key(
+                        old,
+                        i,
+                        |&pos| (self.score_state_for_find(pos),
+                                usize::MAX - pos),
+                    )
+                },
+            });
+        }
+
+        best_letter
+    }
+
+    fn find_and_swap_letter(&mut self, ch: char) {
+        let mut changed_something = false;
+
+        for ch in ch.to_uppercase() {
+            let Some(pos) = self.find_letter(ch)
+            else {
+                break;
+            };
+
+            let cursor_pos = self.cursor_pos();
+            let grid = &mut self.puzzles[self.current_puzzle];
+            grid.puzzle.squares.swap(pos, cursor_pos);
+            grid.update_square_states();
+            self.advance_cursor();
+            changed_something = true;
+        }
+
+        if changed_something {
+            self.selected_position = None;
+            self.send_grid();
+            self.redraw();
+        }
+    }
+
     fn handle_key_code(&mut self, key: i32) {
         self.last_key_was_letter = false;
 
@@ -734,11 +800,14 @@ impl Editor {
         if let Some(ch) = char::from_u32(ch as u32) {
             if self.handle_char_shortcut(ch) {
                 self.last_key_was_letter = false;
-            } else if matches!(self.current_grid, GridChoice::Solution) &&
-                (ch.is_alphabetic() || ch == '.')
-            {
-                for ch in ch.to_uppercase() {
-                    self.add_character(ch);
+            } else if ch.is_alphabetic() || ch == '.' {
+                match self.current_grid {
+                    GridChoice::Solution => {
+                        for ch in ch.to_uppercase() {
+                            self.add_character(ch);
+                        }
+                    },
+                    GridChoice::Puzzle => self.find_and_swap_letter(ch),
                 }
                 self.last_key_was_letter = true;
             } else {
