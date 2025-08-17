@@ -714,7 +714,7 @@ impl Editor {
             '\u{0007}' => self.generate_puzzle(), // Ctrl+G
             '\u{0010}' => self.pattern_search(), // Ctrl+P
             '\u{0012}' => self.shuffle_puzzle(), // Ctrl+R
-            '\u{0013}' | 's'
+            '\u{0013}' // Ctrl+S
                 if matches!(self.current_grid, GridChoice::Puzzle) => {
                     self.handle_swap();
                 },
