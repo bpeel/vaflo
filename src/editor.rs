@@ -293,6 +293,16 @@ fn remap_shavian_keyboard(ch: char) -> Option<char> {
     MAP.binary_search_by_key(&ch, |pair| pair.0).ok().map(|pos| MAP[pos].1)
 }
 
+fn key_to_letter(ch: char) -> Option<char> {
+    remap_shavian_keyboard(ch).or_else(|| {
+        if ch.is_alphabetic() || ch == '.' {
+            Some(ch)
+        } else {
+            None
+        }
+    })
+}
+
 impl Editor {
     fn new(
         puzzles: Vec<Grid>,
@@ -635,22 +645,7 @@ impl Editor {
         self.redraw();
     }
 
-    fn add_character(&mut self, ch: char) {
-        let position = self.cursor_x as usize
-            + self.cursor_y as usize * WORD_LENGTH;
-
-        let grid = &mut self.puzzles[self.current_puzzle];
-
-        grid.solution.letters[position] = ch;
-        if is_wildcard(ch) {
-            self.added_letters &= !(1 << position);
-        } else {
-            self.added_letters |= 1 << position;
-        }
-        grid.update_square_states();
-        self.update_words();
-        self.send_grid();
-
+    fn advance_cursor(&mut self) {
         match self.edit_direction {
             EditDirection::Down => {
                 if self.cursor_y + 1 < WORD_LENGTH as i32 {
@@ -683,8 +678,92 @@ impl Editor {
                 }
             },
         }
+    }
+
+    fn add_character(&mut self, ch: char) {
+        let position = self.cursor_x as usize
+            + self.cursor_y as usize * WORD_LENGTH;
+
+        let grid = &mut self.puzzles[self.current_puzzle];
+
+        grid.solution.letters[position] = ch;
+        if is_wildcard(ch) {
+            self.added_letters &= !(1 << position);
+        } else {
+            self.added_letters |= 1 << position;
+        }
+        grid.update_square_states();
+        self.update_words();
+        self.send_grid();
+        self.advance_cursor();
 
         self.redraw();
+    }
+
+    fn score_state_for_find(&self, pos: usize) -> u8 {
+        let grid = &self.puzzles[self.current_puzzle];
+
+        match grid.puzzle.squares[pos].state {
+            PuzzleSquareState::Correct => 0,
+            PuzzleSquareState::WrongPosition => 1,
+            PuzzleSquareState::Wrong => 2,
+        }
+    }
+
+    fn find_letter(&self, ch: char) -> Option<usize> {
+        let mut best_letter = None;
+
+        let grid = &self.puzzles[self.current_puzzle];
+
+        for (i, square) in grid.puzzle.squares.iter().enumerate() {
+            if i == self.cursor_pos() {
+                continue;
+            }
+
+            let letter = grid.solution.letters[square.position];
+
+            if letter != ch {
+                continue;
+            }
+
+            best_letter = Some(match best_letter {
+                None => i,
+                Some(old) => {
+                    std::cmp::max_by_key(
+                        old,
+                        i,
+                        |&pos| (self.score_state_for_find(pos),
+                                usize::MAX - pos),
+                    )
+                },
+            });
+        }
+
+        best_letter
+    }
+
+    fn find_and_swap_letter(&mut self, ch: char) {
+        let mut changed_something = false;
+
+        for ch in ch.to_uppercase() {
+            let Some(pos) = self.find_letter(ch)
+            else {
+                break;
+            };
+
+            let cursor_pos = self.cursor_pos();
+            let grid = &mut self.puzzles[self.current_puzzle];
+            grid.puzzle.squares.swap(pos, cursor_pos);
+            grid.update_square_states();
+            self.advance_cursor();
+            changed_something = true;
+        }
+
+        if changed_something {
+            self.selected_position = None;
+            self.send_grid();
+            self.redraw();
+        }
     }
 
     fn handle_key_code(&mut self, key: i32) {
@@ -739,7 +818,7 @@ impl Editor {
             '\u{0007}' => self.generate_puzzle(), // Ctrl+G
             '\u{0010}' => self.pattern_search(), // Ctrl+P
             '\u{0012}' => self.shuffle_puzzle(), // Ctrl+R
-            '\u{0013}' | 's'
+            '\u{0013}' // Ctrl+S
                 if matches!(self.current_grid, GridChoice::Puzzle) => {
                     self.handle_swap();
                 },
@@ -756,17 +835,14 @@ impl Editor {
         if let Some(ch) = char::from_u32(ch as u32) {
             if self.handle_char_shortcut(ch) {
                 self.last_key_was_letter = false;
-            } else if let GridChoice::Solution = self.current_grid {
-                if let Some(ch) = remap_shavian_keyboard(ch) {
-                    self.add_character(ch);
-                    self.last_key_was_letter = true;
-                } else if ch.is_alphabetic() || ch == '.' {
-                    for ch in ch.to_uppercase() {
-                        self.add_character(ch);
-                    }
-                    self.last_key_was_letter = true;
-                } else {
-                    self.last_key_was_letter = false;
+            } else if let Some(ch) = key_to_letter(ch) {
+                match self.current_grid {
+                    GridChoice::Solution => {
+                        for ch in ch.to_uppercase() {
+                            self.add_character(ch);
+                        }
+                    },
+                    GridChoice::Puzzle => self.find_and_swap_letter(ch),
                 }
             } else {
                 self.last_key_was_letter = false;
