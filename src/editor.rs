@@ -844,6 +844,7 @@ impl Editor {
                     },
                     GridChoice::Puzzle => self.find_and_swap_letter(ch),
                 }
+                self.last_key_was_letter = true;
             } else {
                 self.last_key_was_letter = false;
             }
