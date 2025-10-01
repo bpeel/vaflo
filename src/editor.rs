@@ -81,7 +81,9 @@ struct Word {
     text: String,
 }
 
+#[derive(Default)]
 enum SearchResults {
+    #[default]
     None,
     Crosswords(Vec<crossword_solver::Crossword>),
     Words(Vec<String>),
@@ -461,6 +463,10 @@ impl Editor {
         ncurses::refresh();
     }
 
+    fn last_use_is_too_new(&self, last_use: usize) -> bool {
+        last_use + 30 > self.current_puzzle
+    }
+
     fn draw_words(&self, x: i32, y: i32) {
         let wrong_letter_color = ncurses::COLOR_PAIR(WRONG_LETTER_COLOR);
 
@@ -491,7 +497,7 @@ impl Editor {
             {
                 ncurses::addstr(&format!(" {}({},", word, count));
 
-                let too_new = last_use + 30 > self.current_puzzle;
+                let too_new = self.last_use_is_too_new(last_use);
 
                 if too_new {
                     ncurses::attron(wrong_letter_color);
@@ -823,6 +829,7 @@ impl Editor {
                     self.handle_swap();
                 },
             '\u{000a}' => self.shuffle_search_results(), // Ctrl+J
+            '\u{0016}' => self.remove_invalid_search_results(), // Ctrl+V
             '\u{000e}' => self.new_puzzle(), // Ctrl+N
             '\u{0018}' => self.find_crosswords(), // Ctrl+X
             _ => return false,
@@ -1060,6 +1067,50 @@ impl Editor {
                 words.shuffle(&mut rng);
             },
         }
+
+        self.redraw()
+    }
+
+    fn search_result_is_valid(&self, word: &str) -> bool {
+        self.word_counter
+            .counts(word)
+            .map(|(_, _, last_use)| last_use)
+            .max()
+            .map(|last_use| !self.last_use_is_too_new(last_use))
+            .unwrap_or(true)
+    }
+
+    fn remove_invalid_search_results(&mut self) {
+        let mut search_results = std::mem::take(&mut self.search_results);
+        let mut upper_word = String::new();
+
+        let mut filter_words = |words: &mut Vec<String>| {
+            words.retain(|word| {
+                upper_word.clear();
+                upper_word.extend(
+                    word.chars()
+                        .map(char::to_uppercase)
+                        .flatten()
+                );
+                self.search_result_is_valid(&upper_word)
+            })
+        };
+
+        match search_results {
+            SearchResults::None => (),
+            SearchResults::Crosswords(ref mut crosswords) => {
+                for crossword in crosswords.iter_mut() {
+                    filter_words(&mut crossword.a_words);
+                    filter_words(&mut crossword.b_words);
+                }
+                crosswords.retain(|cw| {
+                    !cw.a_words.is_empty() && !cw.b_words.is_empty()
+                })
+            },
+            SearchResults::Words(ref mut words) => filter_words(words),
+        }
+
+        self.search_results = search_results;
 
         self.redraw()
     }
