@@ -1074,10 +1074,9 @@ impl Editor {
     fn search_result_is_valid(&self, word: &str) -> bool {
         self.word_counter
             .counts(word)
-            .map(|(_, _, last_use)| last_use)
-            .max()
-            .map(|last_use| !self.last_use_is_too_new(last_use))
-            .unwrap_or(true)
+            .all(|(_, count, last_use)| {
+                !self.last_use_is_too_new(last_use) && count < 2
+            })
     }
 
     fn remove_invalid_search_results(&mut self) {
