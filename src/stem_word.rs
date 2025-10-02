@@ -18,3 +18,30 @@ pub fn stem(word: &str) -> &str {
     // FIXME: It would be nice to do something about stemming words in French
     word
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn stems() {
+        assert_eq!(stem("OPAJN"), "OP");
+        assert_eq!(stem("OPOJN"), "OP");
+        assert_eq!(stem("KAFAN"), "KAF");
+        assert_eq!(stem("KAFON"), "KAF");
+        assert_eq!(stem("KAFAJ"), "KAF");
+        assert_eq!(stem("KAFOJ"), "KAF");
+        assert_eq!(stem("KAFIS"), "KAF");
+        assert_eq!(stem("KAFAS"), "KAF");
+        assert_eq!(stem("KAFUS"), "KAF");
+        assert_eq!(stem("KAFOS"), "KAF");
+        assert_eq!(stem("KAFEN"), "KAF");
+        assert_eq!(stem("KANTU"), "KANT");
+        assert_eq!(stem("KANTO"), "KANT");
+        assert_eq!(stem("KANTI"), "KANT");
+        assert_eq!(stem("KANTA"), "KANT");
+        assert_eq!(stem("KANTE"), "KANT");
+
+        assert_eq!(stem("ANKAŬ"), "ANKAŬ");
+    }
+}
