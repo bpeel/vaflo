@@ -55,7 +55,7 @@ impl Dictionary {
         }
     }
 
-    pub fn first_node(&self) -> Option<Node> {
+    pub fn first_node<'a>(&'a self) -> Option<Node<'a>> {
         // Skip the root node
         Node::extract(&self.data).and_then(|node| {
             node.first_child()
