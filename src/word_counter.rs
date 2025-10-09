@@ -75,7 +75,7 @@ impl WordCounter {
             });
     }
 
-    pub fn counts(&self, word: &str) -> WordCounts {
+    pub fn counts<'a>(&'a self, word: &str) -> WordCounts<'a> {
         let entries = self.words.get(stem_word::stem(word))
             .map(|entries| entries.iter())
             .unwrap_or_else(|| [].iter());

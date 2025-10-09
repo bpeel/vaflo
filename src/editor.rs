@@ -30,6 +30,7 @@ mod crossword_solver;
 mod word_search;
 mod generate_puzzle;
 mod wildcard;
+mod trie_builder;
 
 use std::process::ExitCode;
 use letter_grid::LetterGrid;
@@ -89,6 +90,7 @@ enum SearchResults {
 
 struct Editor {
     dictionary: Arc<Dictionary>,
+    filtered_dictionary: Option<Dictionary>,
     solver_state: Arc<SolverStatePair>,
     should_quit: bool,
     grid_x: i32,
@@ -291,6 +293,7 @@ impl Editor {
 
         let mut editor = Editor {
             dictionary,
+            filtered_dictionary: None,
             solver_state,
             should_quit: false,
             grid_x,
@@ -966,6 +969,7 @@ impl Editor {
     }
 
     fn generate_puzzle(&mut self) {
+        let filtered_dictionary = self.take_filtered_dictionary();
         let grid = &mut self.puzzles[self.current_puzzle];
 
         let fixed_letters = (0..(WORD_LENGTH * WORD_LENGTH))
@@ -979,8 +983,10 @@ impl Editor {
             })
             .collect::<Vec<_>>();
 
-        if let Some(generated_puzzle) =
-            generate_puzzle::generate(&self.dictionary, &fixed_letters)
+        if let Some(generated_puzzle) = generate_puzzle::generate(
+            &filtered_dictionary,
+            &fixed_letters
+        )
         {
             grid.solution = generated_puzzle;
             grid.update_square_states();
@@ -988,6 +994,8 @@ impl Editor {
             self.send_grid();
             self.redraw();
         }
+
+        self.filtered_dictionary = Some(filtered_dictionary);
     }
 
     fn pattern_search(&mut self) {
@@ -1093,6 +1101,32 @@ impl Editor {
                 self.word_counter.push(word, puzzle_num);
             }
         }
+
+        self.filtered_dictionary = None;
+    }
+
+    fn take_filtered_dictionary(&mut self) -> Dictionary {
+        self.filtered_dictionary.take().unwrap_or_else(|| {
+            let mut upper_word = String::new();
+            let mut word_iter = dictionary::WordIterator::new(&self.dictionary);
+            let mut builder = trie_builder::TrieBuilder::new();
+
+            while let Some(word) = word_iter.next() {
+                upper_word.clear();
+                upper_word.extend(
+                    word.chars()
+                        .map(char::to_uppercase)
+                        .flatten()
+                );
+                if self.search_result_is_valid(&upper_word) {
+                    builder.add_word(word)
+                }
+            };
+
+            let mut data = Vec::<u8>::new();
+            builder.into_dictionary(&mut data).unwrap();
+            Dictionary::new(data.into_boxed_slice())
+        })
     }
 }
 
