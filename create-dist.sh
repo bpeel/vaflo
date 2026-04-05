@@ -8,7 +8,6 @@ files=(
     "index.html"
     "favicon.ico"
     "puzzles.txt"
-    "donaci.svg"
     "drag.svg"
     "colors.svg"
     "cross.svg"
